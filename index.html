@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EC Workflow Engine - Hightekers Group</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root {
+    --navy:#14365C; --navy2:#1F4E79; --accent:#C2611F; --ink:#2D2D2D;
+    --line:#D9DEE6; --bg:#F5F7FA; --ok:#2E7D46; --amber:#C88A1B; --red:#B3341E;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:Calibri,'Segoe UI',Arial,sans-serif; color:var(--ink); background:var(--bg); font-size:14px; }
+  button { font-family:inherit; font-size:13px; border:none; border-radius:5px; padding:8px 14px; cursor:pointer; }
+  .btn-p { background:var(--navy); color:#fff; } .btn-p:disabled { background:#9AA7B8; }
+  .btn-a { background:var(--accent); color:#fff; }
+  .btn-g { background:#fff; border:1px solid var(--line); color:var(--ink); }
+  input, select, textarea { font-family:inherit; font-size:13px; border:1px solid var(--line); border-radius:5px; padding:7px 9px; width:100%; }
+  textarea { resize:vertical; }
+  table { border-collapse:collapse; width:100%; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:#667; padding:8px 10px; border-bottom:2px solid var(--line); }
+  td { padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .topbar { background:var(--navy); color:#fff; display:flex; align-items:center; justify-content:space-between; padding:0 20px; height:56px; }
+  .topbar .brand { font-weight:700; letter-spacing:.4px; font-size:16px; }
+  .topbar .brand span { color:#E8B98A; font-weight:400; }
+  .nav { display:flex; gap:4px; }
+  .nav button { background:transparent; color:#C9D4E2; border-radius:4px; }
+  .nav button.on { background:var(--navy2); color:#fff; }
+  .wrap { max-width:1280px; margin:0 auto; padding:20px 16px 80px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:18px; margin-bottom:16px; }
+  .card h3 { margin:0 0 12px; font-size:13px; color:var(--navy); text-transform:uppercase; letter-spacing:.8px; }
+  .rag { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; }
+  .rag.GREEN{background:var(--ok);} .rag.AMBER{background:var(--amber);} .rag.RED{background:var(--red);}
+  .pill { display:inline-block; font-size:11px; border-radius:3px; padding:2px 8px; background:#EEF2F7; color:var(--navy2); text-transform:uppercase; letter-spacing:.5px; }
+  .pill.accent { background:var(--accent); color:#fff; }
+  .link { color:var(--navy2); cursor:pointer; font-weight:600; text-decoration:none; }
+  /* Stage tracker - the signature element */
+  .tracker { display:flex; align-items:flex-start; margin:6px 0 4px; overflow-x:auto; padding-bottom:6px; }
+  .tstep { flex:1; min-width:86px; text-align:center; position:relative; }
+  .tstep .dot { width:22px; height:22px; border-radius:50%; margin:0 auto 6px; background:#fff; border:2px solid var(--line); color:#999; font-size:11px; line-height:18px; font-weight:700; position:relative; z-index:2; }
+  .tstep.done .dot { background:var(--navy); border-color:var(--navy); color:#fff; }
+  .tstep.now .dot { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 0 0 4px rgba(194,97,31,.18); }
+  .tstep .lbl { font-size:10.5px; color:#778; line-height:1.25; }
+  .tstep.now .lbl { color:var(--accent); font-weight:700; }
+  .tstep.done .lbl { color:var(--navy); }
+  .tstep::before { content:''; position:absolute; top:11px; left:-50%; width:100%; height:2px; background:var(--line); z-index:1; }
+  .tstep:first-child::before { display:none; }
+  .tstep.done::before, .tstep.now::before { background:var(--navy); }
+  .board { display:flex; gap:10px; overflow-x:auto; align-items:flex-start; }
+  .col { background:#EDF1F6; border-radius:8px; min-width:230px; flex:1; padding:10px; }
+  .col h4 { margin:0 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:#556; }
+  .rcard { background:#fff; border:1px solid var(--line); border-radius:6px; padding:10px; margin-bottom:8px; cursor:pointer; }
+  .rcard:hover { border-color:var(--navy2); }
+  .rcard .t { font-weight:700; font-size:13px; }
+  .rcard .m { font-size:12px; color:#667; margin-top:2px; }
+  .modal-bg { position:fixed; inset:0; background:rgba(20,40,70,.45); display:flex; align-items:center; justify-content:center; z-index:50; padding:16px; }
+  .modal { background:#fff; border-radius:8px; max-width:560px; width:100%; max-height:90vh; overflow:auto; padding:22px; }
+  .frow { margin-bottom:12px; } .frow label { display:block; font-size:12px; color:#556; margin-bottom:4px; font-weight:600; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; border-radius:6px; padding:11px 20px; z-index:99; font-size:13px; box-shadow:0 4px 14px rgba(0,0,0,.25); }
+  .toast.err { background:var(--red); }
+  .kpi { text-align:center; padding:14px 6px; }
+  .kpi .v { font-size:30px; font-weight:700; color:var(--navy); }
+  .kpi .l { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:#778; margin-top:2px; }
+  .comment { padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .comment .who { font-weight:700; color:var(--navy2); } .comment .when { color:#99a; font-size:11px; margin-left:6px; }
+  .comment .vis { font-size:10px; border-radius:3px; padding:1px 6px; margin-left:6px; }
+  .comment .vis.shared { background:#E6F0E9; color:var(--ok); } .comment .vis.internal-only { background:#F1F1F1; color:#888; }
+  .signin { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; }
+  .muted { color:#889; font-size:12px; }
+  @media (max-width:720px){ .grid2 { grid-template-columns:1fr; } .nav button { padding:8px 8px; font-size:12px; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="env,react">
+/* ============================================================
+   CONFIG - set these two values after deployment
+   ============================================================ */
+const API_URL = 'https://script.google.com/macros/s/AKfycbznwSg6Ormb50MPXT92WtDGXQxJWtPhxOxO5s0F0MjoFqAv_3nZQSFQUaUjqWeZzHAe/exec';
+const OAUTH_CLIENT_ID = '607658064492-64b3242hl69skmdsb9rvmg6n4bmc28vp.apps.googleusercontent.com';
+
+const { useState, useEffect, useMemo, useRef } = React;
+
+/* ---------- API layer ---------- */
+let ID_TOKEN = null;
+async function api(action, body = {}) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ ...body, action, idToken: ID_TOKEN })
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error);
+  return json.data;
+}
+
+const fmtDate = s => s ? String(s).slice(0, 10) : '';
+const fmtDT = s => s ? String(s).slice(0, 16).replace('T', ' ') : '';
+const hoursSince = s => s ? Math.round((Date.now() - new Date(s).getTime()) / 36e5) : 0;
+const daysBetween = (a, b) => (new Date(b) - new Date(a)) / 864e5;
+
+const ITEM_STATUS_LABEL = {
+  'open': 'Open', 'internal-review': 'Internal review', 'with-client': 'With client',
+  'resolved-accepted': 'Accepted', 'resolved-rejected': 'Rejected', 'withdrawn': 'Withdrawn'
+};
+
+/* ---------- Root ---------- */
+function App() {
+  const [user, setUser] = useState(null);
+  const [boot, setBoot] = useState(null);
+  const [view, setView] = useState({ name: 'queue' });
+  const [toast, setToast] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const say = (text, err) => { setToast({ text, err }); setTimeout(() => setToast(null), 4500); };
+
+  const refresh = async () => {
+    try { setBoot(await api('bootstrap')); }
+    catch (e) { say(e.message, true); if (String(e.message).startsWith('AUTH')) setUser(null); }
+  };
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (window.google && !user) {
+        clearInterval(t);
+        google.accounts.id.initialize({
+          client_id: OAUTH_CLIENT_ID,
+          callback: async (resp) => {
+            ID_TOKEN = resp.credential;
+            try {
+              const me = await api('whoami');
+              setUser(me);
+              setBoot(await api('bootstrap'));
+            } catch (e) { say(e.message, true); }
+          }
+        });
+        google.accounts.id.renderButton(document.getElementById('gbtn'), { theme: 'filled_blue', size: 'large' });
+      }
+    }, 300);
+    return () => clearInterval(t);
+  }, [user]);
+
+  if (!user) return (
+    <div className="signin">
+      <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--navy)' }}>EC Workflow Engine</div>
+      <div className="muted">Hightekers Group - Employment Contract Workflow</div>
+      <div id="gbtn"></div>
+      {toast && <div className={'toast' + (toast.err ? ' err' : '')}>{toast.text}</div>}
+    </div>
+  );
+  if (!boot) return <div className="signin"><div>Loading...</div></div>;
+
+  const nav = [
+    ['queue', 'My queue'], ['board', 'Pipeline'], ['new', 'New request'],
+    ['metrics', 'Performance'], ...(user.role === 'ADMIN' ? [['admin', 'Admin']] : [])
+  ];
+
+  return (
+    <div>
+      <div className="topbar">
+        <div className="brand">EC Workflow <span>| Hightekers Group</span></div>
+        <div className="nav">
+          {nav.map(([k, l]) =>
+            <button key={k} className={view.name === k ? 'on' : ''} onClick={() => setView({ name: k })}>{l}</button>)}
+        </div>
+        <div style={{ fontSize: 12, color: '#C9D4E2' }}>{user.name} · {user.role}</div>
+      </div>
+      <div className="wrap">
+        {view.name === 'queue' && <Queue boot={boot} user={user} open={id => setView({ name: 'detail', id })} />}
+        {view.name === 'board' && <Board boot={boot} open={id => setView({ name: 'detail', id })} refresh={refresh} />}
+        {view.name === 'new' && <NewRequest boot={boot} say={say} done={id => { refresh(); setView({ name: 'detail', id }); }} />}
+        {view.name === 'detail' && <Detail id={view.id} boot={boot} user={user} say={say} refreshAll={refresh} back={() => setView({ name: 'board' })} />}
+        {view.name === 'metrics' && <Metrics boot={boot} />}
+        {view.name === 'admin' && <Admin boot={boot} say={say} refresh={refresh} />}
+      </div>
+      {toast && <div className={'toast' + (toast.err ? ' err' : '')}>{toast.text}</div>}
+    </div>
+  );
+}
+
+/* ---------- Stage tracker (signature element) ---------- */
+function Tracker({ boot, stage }) {
+  const idx = boot.stages.indexOf(stage);
+  return (
+    <div className="tracker">
+      {boot.stages.map((s, i) => (
+        <div key={s} className={'tstep ' + (i < idx ? 'done' : i === idx ? 'now' : '')}>
+          <div className="dot">{i < idx ? '✓' : i + 1}</div>
+          <div className="lbl">{boot.stageLabels[s]}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- My queue ---------- */
+function Queue({ boot, user, open }) {
+  const mine = boot.requests.filter(r => {
+    if (r.current_stage === 'COMPLETED') return false;
+    const s = r.current_stage;
+    if (user.role === 'CSM') return r.csm_email === user.email && ['INITIATED','REQUIREMENTS_CAPTURED','CSM_ASSESSMENT','READY_TO_RELEASE','CLIENT_REVIEW'].includes(s);
+    if (user.role === 'HR') return ['HR_REVIEW','READY_TO_RELEASE','EC_ISSUANCE'].includes(s) && (!r.hr_email || r.hr_email === user.email);
+    if (user.role === 'LEGAL') return s === 'LEGAL_REVIEW';
+    if (user.role === 'AE') return r.ae_email === user.email;
+    return true; // ADMIN sees all
+  }).sort((a, b) => new Date(a.stage_entered_at) - new Date(b.stage_entered_at));
+
+  return (
+    <div className="card">
+      <h3>Awaiting my action ({mine.length})</h3>
+      {!mine.length && <div className="muted">Nothing waiting on you. Check the Pipeline for overall status.</div>}
+      {mine.length > 0 &&
+        <table><thead><tr><th></th><th>Request</th><th>Client / Employee</th><th>Country</th><th>Stage</th><th>In stage</th><th>Iter.</th></tr></thead>
+        <tbody>{mine.map(r =>
+          <tr key={r.request_id} style={{ cursor: 'pointer' }} onClick={() => open(r.request_id)}>
+            <td><span className={'rag ' + r.rag_status}></span></td>
+            <td><span className="link">{r.request_id}</span></td>
+            <td>{r.client_name} / {r.employee_name}</td>
+            <td>{r.country}</td>
+            <td><span className="pill">{boot.stageLabels[r.current_stage]}</span></td>
+            <td>{hoursSince(r.stage_entered_at)}h</td>
+            <td>{r.iteration_count || 0}</td>
+          </tr>)}</tbody></table>}
+    </div>
+  );
+}
+
+/* ---------- Pipeline board ---------- */
+function Board({ boot, open, refresh }) {
+  const [q, setQ] = useState('');
+  const live = boot.requests.filter(r =>
+    (r.request_id + r.client_name + r.employee_name + r.country + r.csm_email)
+      .toLowerCase().includes(q.toLowerCase()));
+  const cols = boot.stages.filter(s => s !== 'COMPLETED');
+  const done = live.filter(r => r.current_stage === 'COMPLETED');
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+        <input placeholder="Filter by client, employee, country, CSM..." value={q} onChange={e => setQ(e.target.value)} style={{ maxWidth: 380 }} />
+        <button className="btn-g" onClick={refresh}>Refresh</button>
+      </div>
+      <div className="board">
+        {cols.map(s => {
+          const rs = live.filter(r => r.current_stage === s);
+          return (
+            <div className="col" key={s}>
+              <h4>{boot.stageLabels[s]} ({rs.length})</h4>
+              {rs.map(r =>
+                <div className="rcard" key={r.request_id} onClick={() => open(r.request_id)}>
+                  <div className="t"><span className={'rag ' + r.rag_status}></span>{r.request_id}</div>
+                  <div className="m">{r.client_name}</div>
+                  <div className="m">{r.employee_name} · {r.country}</div>
+                  <div className="m">{hoursSince(r.stage_entered_at)}h in stage{Number(r.iteration_count) > 0 ? ` · iter ${r.iteration_count}` : ''}</div>
+                </div>)}
+            </div>);
+        })}
+      </div>
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3>Completed ({done.length})</h3>
+        {done.slice(0, 20).map(r =>
+          <div key={r.request_id} style={{ padding: '6px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
+            <span className="link" onClick={() => open(r.request_id)}>{r.request_id}</span> — {r.client_name} / {r.employee_name} · closed {fmtDate(r.completed_at)}
+          </div>)}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- New request ---------- */
+function NewRequest({ boot, say, done }) {
+  const [f, setF] = useState({});
+  const [items, setItems] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const set = (k, v) => setF({ ...f, [k]: v });
+  const csms = boot.users.filter(u => u.role === 'CSM');
+  const hrs = boot.users.filter(u => u.role === 'HR');
+
+  const submit = async () => {
+    setBusy(true);
+    try {
+      const { requestId } = await api('createRequest', f);
+      for (const it of items.filter(i => i.description)) {
+        await api('addItem', { requestId, ...it });
+      }
+      say('Request ' + requestId + ' created.');
+      done(requestId);
+    } catch (e) { say(e.message, true); }
+    setBusy(false);
+  };
+
+  return (
+    <div className="card" style={{ maxWidth: 760 }}>
+      <h3>New employment contract request</h3>
+      <div className="grid2">
+        {[['client_name','Client name'],['client_contact_name','Client contact name'],
+          ['client_contact_email','Client contact email'],['employee_name','Employee name'],
+          ['job_title','Job title'],['country','Country of employment'],
+          ['entity','Employing entity'],['proposed_start_date','Proposed start date (YYYY-MM-DD)'],
+          ['target_date','Target completion date (YYYY-MM-DD)']]
+          .map(([k, l]) =>
+            <div className="frow" key={k}><label>{l}</label>
+              <input value={f[k] || ''} onChange={e => set(k, e.target.value)} /></div>)}
+        <div className="frow"><label>Assigned CSM</label>
+          <select value={f.csm_email || ''} onChange={e => set('csm_email', e.target.value)}>
+            <option value="">Select...</option>
+            {csms.map(u => <option key={u.email} value={u.email}>{u.name}</option>)}
+          </select></div>
+        <div className="frow"><label>Assigned HR (optional)</label>
+          <select value={f.hr_email || ''} onChange={e => set('hr_email', e.target.value)}>
+            <option value="">Default HR routing</option>
+            {hrs.map(u => <option key={u.email} value={u.email}>{u.name}</option>)}
+          </select></div>
+      </div>
+      <div className="frow"><label>Notes / context from the client</label>
+        <textarea rows="3" value={f.notes || ''} onChange={e => set('notes', e.target.value)} /></div>
+
+      <h3 style={{ marginTop: 18 }}>Known client requirements (optional - CSM can add more later)</h3>
+      {items.map((it, i) =>
+        <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+          <select style={{ maxWidth: 180 }} value={it.category} onChange={e => { const c = [...items]; c[i].category = e.target.value; setItems(c); }}>
+            {boot.categories.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <input placeholder="What is the client asking for?" value={it.description}
+            onChange={e => { const c = [...items]; c[i].description = e.target.value; setItems(c); }} />
+          <button className="btn-g" onClick={() => setItems(items.filter((_, x) => x !== i))}>×</button>
+        </div>)}
+      <button className="btn-g" onClick={() => setItems([...items, { category: boot.categories[0], description: '', source: 'NHF / work order' }])}>+ Add requirement</button>
+      <div style={{ marginTop: 18 }}>
+        <button className="btn-p" disabled={busy} onClick={submit}>{busy ? 'Creating...' : 'Create request'}</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Request detail ---------- */
+function Detail({ id, boot, user, say, refreshAll, back }) {
+  const [d, setD] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [modal, setModal] = useState(null);
+
+  const load = async () => {
+    try { setD(await api('getRequest', { requestId: id })); }
+    catch (e) { say(e.message, true); }
+  };
+  useEffect(() => { load(); }, [id]);
+  if (!d) return <div className="card">Loading {id}...</div>;
+
+  const r = d.request;
+  const act = async (fn, okMsg) => {
+    setBusy(true);
+    try { await fn(); say(okMsg); await load(); refreshAll(); }
+    catch (e) { say(e.message, true); }
+    setBusy(false);
+  };
+
+  const stage = r.current_stage;
+  const gateOwnerRole = { INITIATED: 'CSM', REQUIREMENTS_CAPTURED: 'CSM', CSM_ASSESSMENT: 'CSM', HR_REVIEW: 'HR', LEGAL_REVIEW: 'LEGAL' }[stage];
+  const canGate = gateOwnerRole && (user.role === gateOwnerRole || user.role === 'ADMIN');
+  const canRelease = stage === 'READY_TO_RELEASE' && ['CSM', 'HR', 'ADMIN'].includes(user.role);
+  const canComplete = stage === 'EC_ISSUANCE' && ['HR', 'ADMIN'].includes(user.role);
+  const canLogClient = stage === 'CLIENT_REVIEW' && ['CSM', 'HR', 'ADMIN'].includes(user.role);
+
+  const gateLabel = {
+    INITIATED: 'Confirm & start requirements capture',
+    REQUIREMENTS_CAPTURED: 'All requirements captured - start assessment',
+    CSM_ASSESSMENT: 'Assessment complete - route onward',
+    HR_REVIEW: 'HR review complete - route onward',
+    LEGAL_REVIEW: 'Legal review complete'
+  }[stage];
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div>
+          <span className="link" onClick={back}>← Pipeline</span>
+          <span style={{ fontSize: 20, fontWeight: 700, marginLeft: 14, color: 'var(--navy)' }}>{r.request_id}</span>
+          <span className={'rag ' + r.rag_status} style={{ marginLeft: 10 }}></span>
+          {Number(r.iteration_count) > 0 && <span className="pill accent" style={{ marginLeft: 8 }}>Iteration {r.iteration_count}</span>}
+        </div>
+        <a className="link" href={r.drive_folder_url} target="_blank" rel="noopener">Drive folder ↗</a>
+      </div>
+
+      <div className="card">
+        <Tracker boot={boot} stage={stage} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 28px', fontSize: 13, marginTop: 8 }}>
+          <span><b>Client:</b> {r.client_name} ({r.client_contact_name}, {r.client_contact_email})</span>
+          <span><b>Employee:</b> {r.employee_name} — {r.job_title}</span>
+          <span><b>Country / entity:</b> {r.country} / {r.entity}</span>
+          <span><b>Start:</b> {fmtDate(r.proposed_start_date) || 'TBC'}</span>
+          <span><b>Target:</b> {fmtDate(r.target_date) || '—'}</span>
+          <span><b>CSM:</b> {r.csm_email}</span>
+          <span><b>AE:</b> {r.ae_email}</span>
+          <span><b>In stage:</b> {hoursSince(r.stage_entered_at)}h</span>
+        </div>
+        <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {canGate && <button className="btn-p" disabled={busy}
+            onClick={() => act(() => api('approveGate', { requestId: id }), 'Gate approved.')}>{gateLabel}</button>}
+          {canRelease && <button className="btn-a" disabled={busy} onClick={() => setModal('release')}>Release to client</button>}
+          {canLogClient && <button className="btn-g" disabled={busy} onClick={() => setModal('logclient')}>Log client response (received offline)</button>}
+          {canComplete && <button className="btn-p" disabled={busy}
+            onClick={() => act(() => api('completeRequest', { requestId: id }), 'Request completed.')}>Complete - EC signed & filed</button>}
+        </div>
+      </div>
+
+      <Items d={d} boot={boot} user={user} act={act} busy={busy} />
+      <Docs d={d} user={user} act={act} busy={busy} />
+      <Comments d={d} user={user} act={act} busy={busy} />
+      <History d={d} boot={boot} />
+
+      {modal === 'release' && <ReleaseModal d={d} close={() => setModal(null)} act={act} />}
+      {modal === 'logclient' && <LogClientModal d={d} close={() => setModal(null)} act={act} />}
+    </div>
+  );
+}
+
+/* ---------- Requirement items ---------- */
+function Items({ d, boot, user, act, busy }) {
+  const [adding, setAdding] = useState(null);
+  const [decide, setDecide] = useState(null); // {item, layer}
+  const r = d.request;
+  const canAdd = ['CSM', 'ADMIN'].includes(user.role) && r.current_stage !== 'COMPLETED';
+
+  return (
+    <div className="card">
+      <h3>Requirement items ({d.items.filter(i => i.item_status !== 'withdrawn').length})</h3>
+      <table>
+        <thead><tr><th>Category</th><th>Clause</th><th>Client ask</th><th>CSM</th><th>HR</th><th>Legal</th><th>Client</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          {d.items.map(i => (
+            <tr key={i.item_id} style={i.item_status === 'withdrawn' ? { opacity: .45 } : {}}>
+              <td><span className="pill">{i.category}</span></td>
+              <td>{i.clause_ref}</td>
+              <td>{i.description}
+                {i.resolution_summary && <div className="muted">{i.resolution_summary}</div>}</td>
+              <td><Dec v={i.csm_assessment} n={i.csm_assessment_note} extra={i.precedent_ref && ('Precedent: ' + i.precedent_ref)} /></td>
+              <td><Dec v={i.hr_decision} n={i.hr_decision_note} /></td>
+              <td><Dec v={i.legal_decision} n={i.legal_decision_note} /></td>
+              <td><Dec v={i.client_response} n={i.client_response_note} /></td>
+              <td><span className="pill">{ITEM_STATUS_LABEL[i.item_status] || i.item_status}</span></td>
+              <td style={{ whiteSpace: 'nowrap' }}>
+                {['CSM','ADMIN'].includes(user.role) && ['open','internal-review'].includes(i.item_status) &&
+                  <button className="btn-g" onClick={() => setDecide({ item: i, layer: 'csm' })}>CSM</button>}
+                {['HR','ADMIN'].includes(user.role) && i.csm_assessment === 'flag-HR' && ['open','internal-review'].includes(i.item_status) &&
+                  <button className="btn-g" style={{ marginLeft: 4 }} onClick={() => setDecide({ item: i, layer: 'hr' })}>HR</button>}
+                {['LEGAL','ADMIN'].includes(user.role) && i.hr_decision === 'escalate-legal' && ['open','internal-review'].includes(i.item_status) &&
+                  <button className="btn-g" style={{ marginLeft: 4 }} onClick={() => setDecide({ item: i, layer: 'legal' })}>Legal</button>}
+              </td>
+            </tr>))}
+        </tbody>
+      </table>
+      {canAdd && !adding && <button className="btn-g" style={{ marginTop: 10 }}
+        onClick={() => setAdding({ category: boot.categories[0], description: '', clause_ref: '', source: '' })}>+ Add requirement item</button>}
+      {adding &&
+        <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <select style={{ maxWidth: 180 }} value={adding.category} onChange={e => setAdding({ ...adding, category: e.target.value })}>
+            {boot.categories.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <input style={{ maxWidth: 90 }} placeholder="Clause" value={adding.clause_ref} onChange={e => setAdding({ ...adding, clause_ref: e.target.value })} />
+          <input style={{ flex: 1, minWidth: 200 }} placeholder="What is the client asking for?" value={adding.description} onChange={e => setAdding({ ...adding, description: e.target.value })} />
+          <input style={{ maxWidth: 160 }} placeholder="Source (email/call/NHF)" value={adding.source} onChange={e => setAdding({ ...adding, source: e.target.value })} />
+          <button className="btn-p" disabled={busy || !adding.description}
+            onClick={() => act(async () => { await api('addItem', { requestId: d.request.request_id, ...adding }); setAdding(null); }, 'Item added.')}>Save</button>
+          <button className="btn-g" onClick={() => setAdding(null)}>Cancel</button>
+        </div>}
+      {decide && <DecisionModal ctx={decide} d={d} close={() => setDecide(null)} act={act} />}
+    </div>
+  );
+}
+function Dec({ v, n, extra }) {
+  if (!v) return <span className="muted">—</span>;
+  const color = { recommend: 'var(--ok)', 'precedent-cited': 'var(--ok)', approve: 'var(--ok)', accept: 'var(--ok)',
+    'flag-HR': 'var(--amber)', 'escalate-legal': 'var(--amber)', counter: 'var(--amber)',
+    reject: 'var(--red)' }[v] || 'var(--ink)';
+  return <div><b style={{ color, fontSize: 12 }}>{v}</b>{n && <div className="muted">{n}</div>}{extra && <div className="muted">{extra}</div>}</div>;
+}
+
+function DecisionModal({ ctx, d, close, act }) {
+  const { item, layer } = ctx;
+  const options = {
+    csm: [['recommend','Recommend - standard/acceptable'],['precedent-cited','Confirmed via precedent'],['flag-HR','Flag for HR review']],
+    hr: [['approve','Approve exception'],['reject','Reject - not permissible'],['escalate-legal','Escalate to Legal']],
+    legal: [['approve','Legally permissible'],['reject','Not legally permissible']]
+  }[layer];
+  const [v, setV] = useState('');
+  const [note, setNote] = useState('');
+  const [prec, setPrec] = useState('');
+  return (
+    <div className="modal-bg" onClick={close}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h3 style={{ color: 'var(--navy)' }}>{layer.toUpperCase()} decision — {item.category}</h3>
+        <p style={{ fontSize: 13 }}>{item.description}</p>
+        <div className="frow"><label>Decision</label>
+          <select value={v} onChange={e => setV(e.target.value)}>
+            <option value="">Select...</option>
+            {options.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select></div>
+        {layer === 'csm' &&
+          <div className="frow"><label>Precedent reference (optional)</label>
+            <input value={prec} onChange={e => setPrec(e.target.value)} placeholder="e.g. REQ-00012 / KB article / prior client" /></div>}
+        <div className="frow"><label>Note (visible internally; summarised to client as our position)</label>
+          <textarea rows="3" value={note} onChange={e => setNote(e.target.value)} /></div>
+        <button className="btn-p" disabled={!v}
+          onClick={() => act(async () => {
+            await api('updateItem', { itemId: item.item_id, layer, value: v, note, precedent_ref: prec });
+            close();
+          }, 'Decision recorded.')}>Record decision</button>
+        <button className="btn-g" style={{ marginLeft: 8 }} onClick={close}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Documents ---------- */
+function Docs({ d, user, act, busy }) {
+  const [mode, setMode] = useState(null);
+  const [f, setF] = useState({ doc_type: 'draft-EC' });
+  const fileRef = useRef();
+  const types = ['NHF', 'draft-EC', 'client-markup', 'final-EC', 'signed-EC', 'other'];
+  const save = () => act(async () => {
+    if (mode === 'upload') {
+      const file = fileRef.current.files[0];
+      if (!file) throw new Error('Choose a file.');
+      if (file.size > 8 * 1024 * 1024) throw new Error('Files must be under 8 MB - register a Drive link instead.');
+      const base64 = await new Promise((res, rej) => {
+        const rd = new FileReader();
+        rd.onload = () => res(String(rd.result).split(',')[1]);
+        rd.onerror = rej; rd.readAsDataURL(file);
+      });
+      await api('uploadDocument', { requestId: d.request.request_id, doc_type: f.doc_type, file_name: file.name, mimeType: file.type || 'application/octet-stream', base64 });
+    } else {
+      if (!f.drive_url || !f.file_name) throw new Error('File name and Drive link are required.');
+      await api('registerDocument', { requestId: d.request.request_id, ...f });
+    }
+    setMode(null); setF({ doc_type: 'draft-EC' });
+  }, 'Document saved.');
+
+  return (
+    <div className="card">
+      <h3>Documents ({d.documents.length})</h3>
+      <table><thead><tr><th>Type</th><th>v</th><th>File</th><th>By</th><th>When</th><th>Sent to client</th></tr></thead>
+        <tbody>{d.documents.map(doc =>
+          <tr key={doc.doc_id}>
+            <td><span className="pill">{doc.doc_type}</span></td><td>{doc.version}</td>
+            <td><a className="link" href={doc.drive_url} target="_blank" rel="noopener">{doc.file_name}</a></td>
+            <td>{doc.uploaded_by}</td><td>{fmtDT(doc.timestamp)}</td>
+            <td>{doc.sent_to_client ? fmtDT(doc.sent_to_client) : '—'}</td>
+          </tr>)}</tbody></table>
+      {!mode && <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+        <button className="btn-g" onClick={() => setMode('upload')}>Upload file</button>
+        <button className="btn-g" onClick={() => setMode('link')}>Register Drive link</button>
+      </div>}
+      {mode && <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <select style={{ maxWidth: 150 }} value={f.doc_type} onChange={e => setF({ ...f, doc_type: e.target.value })}>
+          {types.map(t => <option key={t}>{t}</option>)}</select>
+        {mode === 'upload'
+          ? <input type="file" ref={fileRef} style={{ maxWidth: 300 }} />
+          : <React.Fragment>
+              <input style={{ maxWidth: 200 }} placeholder="File name" value={f.file_name || ''} onChange={e => setF({ ...f, file_name: e.target.value })} />
+              <input style={{ flex: 1, minWidth: 220 }} placeholder="Drive URL" value={f.drive_url || ''} onChange={e => setF({ ...f, drive_url: e.target.value })} />
+            </React.Fragment>}
+        <button className="btn-p" disabled={busy} onClick={save}>Save</button>
+        <button className="btn-g" onClick={() => setMode(null)}>Cancel</button>
+      </div>}
+    </div>
+  );
+}
+
+/* ---------- Comments ---------- */
+function Comments({ d, user, act, busy }) {
+  const [text, setText] = useState('');
+  const [vis, setVis] = useState('internal-only');
+  return (
+    <div className="card">
+      <h3>Discussion</h3>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <input style={{ flex: 1, minWidth: 240 }} placeholder="Add a comment..." value={text} onChange={e => setText(e.target.value)} />
+        <select style={{ maxWidth: 190 }} value={vis} onChange={e => setVis(e.target.value)}>
+          <option value="internal-only">Internal only</option>
+          <option value="shared">Shared with client</option>
+        </select>
+        <button className="btn-p" disabled={busy || !text.trim()}
+          onClick={() => act(async () => { await api('addComment', { requestId: d.request.request_id, text, visibility: vis }); setText(''); }, 'Comment added.')}>Post</button>
+      </div>
+      <div style={{ marginTop: 10 }}>
+        {d.comments.slice().reverse().map(c =>
+          <div className="comment" key={c.comment_id}>
+            <span className="who">{c.author_name}</span>
+            <span className="when">{fmtDT(c.timestamp)}</span>
+            <span className={'vis ' + c.visibility}>{c.visibility === 'shared' ? 'shared with client' : 'internal'}</span>
+            {c.item_id && <span className="when">on {c.item_id}</span>}
+            <div>{c.text}</div>
+            {c.attachment_url && <a className="link" style={{ fontSize: 12 }} href={c.attachment_url} target="_blank" rel="noopener">Attachment</a>}
+          </div>)}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- History ---------- */
+function History({ d, boot }) {
+  return (
+    <div className="card">
+      <h3>Audit trail</h3>
+      <div className="grid2">
+        <div>
+          <b style={{ fontSize: 12 }}>Stage movements</b>
+          {d.stageLog.map((s, i) =>
+            <div key={i} style={{ fontSize: 12.5, padding: '5px 0', borderBottom: '1px solid var(--line)' }}>
+              {fmtDT(s.timestamp)} — {s.from_stage ? (boot.stageLabels[s.from_stage] || s.from_stage) + ' → ' : ''}
+              <b>{boot.stageLabels[s.to_stage] || s.to_stage}</b>
+              {s.direction === 'loop-back' && <span className="pill accent" style={{ marginLeft: 6 }}>loop-back</span>}
+              <span className="muted"> by {s.actioned_by}</span>
+            </div>)}
+        </div>
+        <div>
+          <b style={{ fontSize: 12 }}>Gate approvals</b>
+          {d.approvals.map((a, i) =>
+            <div key={i} style={{ fontSize: 12.5, padding: '5px 0', borderBottom: '1px solid var(--line)' }}>
+              {fmtDT(a.timestamp)} — <b>{a.gate}</b>: {a.decision} <span className="muted">by {a.approver_name}</span>
+            </div>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Release & log-client modals ---------- */
+function ReleaseModal({ d, close, act }) {
+  const drafts = d.documents.filter(x => ['draft-EC', 'final-EC'].includes(x.doc_type));
+  const [docId, setDocId] = useState(drafts.length ? drafts[drafts.length - 1].doc_id : '');
+  return (
+    <div className="modal-bg" onClick={close}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h3 style={{ color: 'var(--navy)' }}>Release to client</h3>
+        <p style={{ fontSize: 13 }}>The client ({d.request.client_contact_name}, {d.request.client_contact_email}) will receive a secure review link by email. Make sure the selected draft is shared so the link in their page opens (anyone-with-link, view only).</p>
+        <div className="frow"><label>Draft to send</label>
+          <select value={docId} onChange={e => setDocId(e.target.value)}>
+            <option value="">Select document...</option>
+            {drafts.map(x => <option key={x.doc_id} value={x.doc_id}>{x.file_name} (v{x.version})</option>)}
+          </select></div>
+        <button className="btn-a" disabled={!docId}
+          onClick={() => act(async () => { await api('releaseToClient', { requestId: d.request.request_id, docId }); close(); }, 'Released - client notified.')}>Send to client</button>
+        <button className="btn-g" style={{ marginLeft: 8 }} onClick={close}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function LogClientModal({ d, close, act }) {
+  const open = d.items.filter(i => i.item_status === 'with-client');
+  const [resp, setResp] = useState({});
+  const [general, setGeneral] = useState('');
+  return (
+    <div className="modal-bg" onClick={close}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h3 style={{ color: 'var(--navy)' }}>Log client response received offline</h3>
+        <p style={{ fontSize: 13 }}>Use this when the client replied by email or call instead of the portal, so the record stays complete.</p>
+        {open.map(i =>
+          <div key={i.item_id} className="frow" style={{ borderBottom: '1px solid var(--line)', paddingBottom: 8 }}>
+            <label>{i.category} — {i.description}</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select style={{ maxWidth: 140 }} value={(resp[i.item_id] || {}).response || ''}
+                onChange={e => setResp({ ...resp, [i.item_id]: { ...(resp[i.item_id] || {}), response: e.target.value } })}>
+                <option value="">No response</option><option value="accept">Accept</option>
+                <option value="reject">Reject</option><option value="counter">Counter</option>
+              </select>
+              <input placeholder="Client's note" value={(resp[i.item_id] || {}).note || ''}
+                onChange={e => setResp({ ...resp, [i.item_id]: { ...(resp[i.item_id] || {}), note: e.target.value } })} />
+            </div>
+          </div>)}
+        <div className="frow"><label>General comment from client (optional)</label>
+          <textarea rows="2" value={general} onChange={e => setGeneral(e.target.value)} /></div>
+        <button className="btn-p"
+          onClick={() => act(async () => {
+            const responses = Object.keys(resp).filter(k => resp[k].response)
+              .map(k => ({ itemId: k, response: resp[k].response, note: resp[k].note || '' }));
+            await api('logClientResponse', { requestId: d.request.request_id, responses, generalComment: general });
+            close();
+          }, 'Client response logged.')}>Log response</button>
+        <button className="btn-g" style={{ marginLeft: 8 }} onClick={close}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Metrics ---------- */
+function Metrics({ boot }) {
+  const m = useMemo(() => {
+    const reqs = boot.requests;
+    const done = reqs.filter(r => r.current_stage === 'COMPLETED' && r.created_at && r.completed_at);
+    const cycles = done.map(r => daysBetween(r.created_at, r.completed_at)).sort((a, b) => a - b);
+    const med = a => a.length ? a[Math.floor(a.length / 2)] : 0;
+    const p90 = a => a.length ? a[Math.floor(a.length * 0.9)] : 0;
+
+    // time in stage from stage log
+    const byStage = {};
+    const logsByReq = {};
+    (boot.stageLog || []).forEach(l => { (logsByReq[l.request_id] = logsByReq[l.request_id] || []).push(l); });
+    Object.values(logsByReq).forEach(logs => {
+      logs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      for (let i = 0; i < logs.length - 1; i++) {
+        const st = logs[i].to_stage;
+        const h = (new Date(logs[i + 1].timestamp) - new Date(logs[i].timestamp)) / 36e5;
+        (byStage[st] = byStage[st] || []).push(h);
+      }
+    });
+    const avg = a => a && a.length ? (a.reduce((x, y) => x + y, 0) / a.length) : 0;
+
+    const items = boot.items;
+    const activeItems = items.filter(i => i.item_status !== 'withdrawn');
+    const legalPct = reqs.length ? Math.round(100 * new Set(items.filter(i => i.hr_decision === 'escalate-legal').map(i => i.request_id)).size / reqs.length) : 0;
+    const firstPass = done.length ? Math.round(100 * done.filter(r => Number(r.iteration_count || 0) === 0).length / done.length) : 0;
+
+    const catCount = {};
+    activeItems.forEach(i => { catCount[i.category] = (catCount[i.category] || 0) + 1; });
+    const catLoop = {};
+    activeItems.filter(i => ['reject', 'counter'].includes(String(i.client_response))).forEach(i => { catLoop[i.category] = (catLoop[i.category] || 0) + 1; });
+
+    return {
+      live: reqs.filter(r => r.current_stage !== 'COMPLETED').length,
+      done: done.length,
+      medCycle: med(cycles).toFixed(1), p90Cycle: p90(cycles).toFixed(1),
+      firstPass, legalPct, byStage, avg, catCount, catLoop,
+      avgIter: done.length ? (done.reduce((s, r) => s + Number(r.iteration_count || 0), 0) / done.length).toFixed(1) : '0'
+    };
+  }, [boot]);
+
+  return (
+    <div>
+      <div className="card">
+        <h3>Turnaround performance</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 8 }}>
+          {[['Live requests', m.live], ['Completed', m.done],
+            ['Median cycle (days)', m.medCycle], ['P90 cycle (days)', m.p90Cycle],
+            ['First-pass acceptance', m.firstPass + '%'], ['Avg iterations', m.avgIter],
+            ['% needing Legal', m.legalPct + '%']]
+            .map(([l, v]) => <div className="kpi" key={l}><div className="v">{v}</div><div className="l">{l}</div></div>)}
+        </div>
+        <div className="muted" style={{ marginTop: 6 }}>Cycle time is end-to-end calendar days from initiation to signed EC. Time with the client is visible in the stage table below and is excluded from internal SLA breaches.</div>
+      </div>
+      <div className="card">
+        <h3>Average hours in each stage</h3>
+        <table><thead><tr><th>Stage</th><th>Avg hours</th><th>Observations</th></tr></thead>
+          <tbody>{boot.stages.filter(s => s !== 'COMPLETED').map(s =>
+            <tr key={s}><td>{boot.stageLabels[s]}{s === 'CLIENT_REVIEW' && <span className="muted"> (client clock)</span>}</td>
+              <td>{m.avg(m.byStage[s]).toFixed(1)}</td><td>{(m.byStage[s] || []).length}</td></tr>)}</tbody></table>
+      </div>
+      <div className="card">
+        <h3>Where the friction is - by category</h3>
+        <table><thead><tr><th>Category</th><th>Items raised</th><th>Client pushback (reject/counter)</th></tr></thead>
+          <tbody>{Object.keys(m.catCount).sort((a, b) => m.catCount[b] - m.catCount[a]).map(c =>
+            <tr key={c}><td>{c}</td><td>{m.catCount[c]}</td><td>{m.catLoop[c] || 0}</td></tr>)}</tbody></table>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Admin ---------- */
+function Admin({ boot, say, refresh }) {
+  const [u, setU] = useState({ role: 'CSM', active: 'yes' });
+  const [cfgEdit, setCfgEdit] = useState({});
+  return (
+    <div>
+      <div className="card">
+        <h3>Users</h3>
+        <table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Region</th><th>Active</th></tr></thead>
+          <tbody>{boot.users.map(x =>
+            <tr key={x.email}><td>{x.name}</td><td>{x.email}</td><td>{x.role}</td><td>{x.region}</td><td>{String(x.active)}</td></tr>)}</tbody></table>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+          <input style={{ maxWidth: 170 }} placeholder="Name" value={u.name || ''} onChange={e => setU({ ...u, name: e.target.value })} />
+          <input style={{ maxWidth: 220 }} placeholder="Email" value={u.email || ''} onChange={e => setU({ ...u, email: e.target.value })} />
+          <select style={{ maxWidth: 110 }} value={u.role} onChange={e => setU({ ...u, role: e.target.value })}>
+            {['AE', 'CSM', 'HR', 'LEGAL', 'ADMIN'].map(r => <option key={r}>{r}</option>)}</select>
+          <input style={{ maxWidth: 110 }} placeholder="Region" value={u.region || ''} onChange={e => setU({ ...u, region: e.target.value })} />
+          <select style={{ maxWidth: 90 }} value={u.active} onChange={e => setU({ ...u, active: e.target.value })}>
+            <option value="yes">active</option><option value="no">inactive</option></select>
+          <button className="btn-p" disabled={!u.name || !u.email}
+            onClick={async () => { try { await api('adminUpsertUser', u); say('User saved.'); refresh(); } catch (e) { say(e.message, true); } }}>Save user</button>
+        </div>
+      </div>
+      <div className="card">
+        <h3>Configuration (SLAs, categories, emails)</h3>
+        <table><thead><tr><th>Key</th><th>Value</th><th></th></tr></thead>
+          <tbody>{(boot.config || []).map(c =>
+            <tr key={c.key}><td style={{ whiteSpace: 'nowrap' }}>{c.key}<div className="muted">{c.description}</div></td>
+              <td><input defaultValue={c.value} onChange={e => setCfgEdit({ ...cfgEdit, [c.key]: e.target.value })} /></td>
+              <td>{cfgEdit[c.key] !== undefined &&
+                <button className="btn-p" onClick={async () => {
+                  try { await api('adminSetConfig', { key: c.key, value: cfgEdit[c.key] }); say('Saved ' + c.key); refresh(); }
+                  catch (e) { say(e.message, true); }
+                }}>Save</button>}</td>
+            </tr>)}</tbody></table>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
