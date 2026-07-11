@@ -14,15 +14,15 @@
     --line:#D9DEE6; --bg:#F5F7FA; --ok:#2E7D46; --amber:#C88A1B; --red:#B3341E;
   }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:Calibri,'Segoe UI',Arial,sans-serif; color:var(--ink); background:var(--bg); font-size:14px; }
-  button { font-family:inherit; font-size:13px; border:none; border-radius:5px; padding:8px 14px; cursor:pointer; }
+  body { margin:0; font-family:Calibri,'Segoe UI',Arial,sans-serif; color:var(--ink); background:var(--bg); font-size:15px; }
+  button { font-family:inherit; font-size:14px; border:none; border-radius:5px; padding:8px 14px; cursor:pointer; }
   .btn-p { background:var(--navy); color:#fff; } .btn-p:disabled { background:#9AA7B8; }
   .btn-a { background:var(--accent); color:#fff; }
   .btn-g { background:#fff; border:1px solid var(--line); color:var(--ink); }
-  input, select, textarea { font-family:inherit; font-size:13px; border:1px solid var(--line); border-radius:5px; padding:7px 9px; width:100%; }
+  input, select, textarea { font-family:inherit; font-size:14px; border:1px solid var(--line); border-radius:5px; padding:7px 9px; width:100%; }
   textarea { resize:vertical; }
   table { border-collapse:collapse; width:100%; }
-  th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:#667; padding:8px 10px; border-bottom:2px solid var(--line); }
+  th { text-align:left; font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:#667; padding:8px 10px; border-bottom:2px solid var(--line); }
   td { padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
   .topbar { background:var(--navy); color:#fff; display:flex; align-items:center; justify-content:space-between; padding:0 20px; height:56px; }
   .topbar .brand { font-weight:700; letter-spacing:.4px; font-size:16px; }
@@ -32,10 +32,10 @@
   .nav button.on { background:var(--navy2); color:#fff; }
   .wrap { max-width:1280px; margin:0 auto; padding:20px 16px 80px; }
   .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:18px; margin-bottom:16px; }
-  .card h3 { margin:0 0 12px; font-size:13px; color:var(--navy); text-transform:uppercase; letter-spacing:.8px; }
+  .card h3 { margin:0 0 12px; font-size:14px; color:var(--navy); text-transform:uppercase; letter-spacing:.8px; }
   .rag { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; }
   .rag.GREEN{background:var(--ok);} .rag.AMBER{background:var(--amber);} .rag.RED{background:var(--red);}
-  .pill { display:inline-block; font-size:11px; border-radius:3px; padding:2px 8px; background:#EEF2F7; color:var(--navy2); text-transform:uppercase; letter-spacing:.5px; }
+  .pill { display:inline-block; font-size:12px; border-radius:3px; padding:2px 8px; background:#EEF2F7; color:var(--navy2); text-transform:uppercase; letter-spacing:.5px; }
   .pill.accent { background:var(--accent); color:#fff; }
   .link { color:var(--navy2); cursor:pointer; font-weight:600; text-decoration:none; }
   /* Stage tracker - the signature element */
@@ -44,7 +44,7 @@
   .tstep .dot { width:22px; height:22px; border-radius:50%; margin:0 auto 6px; background:#fff; border:2px solid var(--line); color:#999; font-size:11px; line-height:18px; font-weight:700; position:relative; z-index:2; }
   .tstep.done .dot { background:var(--navy); border-color:var(--navy); color:#fff; }
   .tstep.now .dot { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 0 0 4px rgba(194,97,31,.18); }
-  .tstep .lbl { font-size:10.5px; color:#778; line-height:1.25; }
+  .tstep .lbl { font-size:11.5px; color:#778; line-height:1.25; }
   .tstep.now .lbl { color:var(--accent); font-weight:700; }
   .tstep.done .lbl { color:var(--navy); }
   .tstep::before { content:''; position:absolute; top:11px; left:-50%; width:100%; height:2px; background:var(--line); z-index:1; }
@@ -52,26 +52,26 @@
   .tstep.done::before, .tstep.now::before { background:var(--navy); }
   .board { display:flex; gap:10px; overflow-x:auto; align-items:flex-start; }
   .col { background:#EDF1F6; border-radius:8px; min-width:230px; flex:1; padding:10px; }
-  .col h4 { margin:0 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:#556; }
+  .col h4 { margin:0 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:#556; }
   .rcard { background:#fff; border:1px solid var(--line); border-radius:6px; padding:10px; margin-bottom:8px; cursor:pointer; }
   .rcard:hover { border-color:var(--navy2); }
-  .rcard .t { font-weight:700; font-size:13px; }
-  .rcard .m { font-size:12px; color:#667; margin-top:2px; }
+  .rcard .t { font-weight:700; font-size:14px; }
+  .rcard .m { font-size:13px; color:#667; margin-top:2px; }
   .modal-bg { position:fixed; inset:0; background:rgba(20,40,70,.45); display:flex; align-items:center; justify-content:center; z-index:50; padding:16px; }
   .modal { background:#fff; border-radius:8px; max-width:560px; width:100%; max-height:90vh; overflow:auto; padding:22px; }
-  .frow { margin-bottom:12px; } .frow label { display:block; font-size:12px; color:#556; margin-bottom:4px; font-weight:600; }
+  .frow { margin-bottom:12px; } .frow label { display:block; font-size:13px; color:#556; margin-bottom:4px; font-weight:600; }
   .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; border-radius:6px; padding:11px 20px; z-index:99; font-size:13px; box-shadow:0 4px 14px rgba(0,0,0,.25); }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; border-radius:6px; padding:11px 20px; z-index:99; font-size:14px; box-shadow:0 4px 14px rgba(0,0,0,.25); }
   .toast.err { background:var(--red); }
   .kpi { text-align:center; padding:14px 6px; }
   .kpi .v { font-size:30px; font-weight:700; color:var(--navy); }
-  .kpi .l { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:#778; margin-top:2px; }
-  .comment { padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; }
-  .comment .who { font-weight:700; color:var(--navy2); } .comment .when { color:#99a; font-size:11px; margin-left:6px; }
+  .kpi .l { font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:#778; margin-top:2px; }
+  .comment { padding:9px 0; border-bottom:1px solid var(--line); font-size:14px; }
+  .comment .who { font-weight:700; color:var(--navy2); } .comment .when { color:#99a; font-size:12px; margin-left:6px; }
   .comment .vis { font-size:10px; border-radius:3px; padding:1px 6px; margin-left:6px; }
   .comment .vis.shared { background:#E6F0E9; color:var(--ok); } .comment .vis.internal-only { background:#F1F1F1; color:#888; }
   .signin { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; }
-  .muted { color:#889; font-size:12px; }
+  .muted { color:#889; font-size:13px; }
   @media (max-width:720px){ .grid2 { grid-template-columns:1fr; } .nav button { padding:8px 8px; font-size:12px; } }
 </style>
 </head>
@@ -81,8 +81,8 @@
 /* ============================================================
    CONFIG - set these two values after deployment
    ============================================================ */
-const API_URL = 'https://script.google.com/macros/s/AKfycbznwSg6Ormb50MPXT92WtDGXQxJWtPhxOxO5s0F0MjoFqAv_3nZQSFQUaUjqWeZzHAe/exec';
-const OAUTH_CLIENT_ID = '607658064492-64b3242hl69skmdsb9rvmg6n4bmc28vp.apps.googleusercontent.com';
+const API_URL = 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
+const OAUTH_CLIENT_ID = 'PASTE_YOUR_GOOGLE_OAUTH_CLIENT_ID_HERE';
 
 const { useState, useEffect, useMemo, useRef } = React;
 
@@ -168,7 +168,7 @@ function App() {
           {nav.map(([k, l]) =>
             <button key={k} className={view.name === k ? 'on' : ''} onClick={() => setView({ name: k })}>{l}</button>)}
         </div>
-        <div style={{ fontSize: 12, color: '#C9D4E2' }}>{user.name} · {user.role}</div>
+        <div style={{ fontSize: 13, color: '#C9D4E2' }}>{user.name} · {user.role}</div>
       </div>
       <div className="wrap">
         {view.name === 'queue' && <Queue boot={boot} user={user} open={id => setView({ name: 'detail', id })} />}
@@ -263,7 +263,7 @@ function Board({ boot, open, refresh }) {
       <div className="card" style={{ marginTop: 16 }}>
         <h3>Completed ({done.length})</h3>
         {done.slice(0, 20).map(r =>
-          <div key={r.request_id} style={{ padding: '6px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
+          <div key={r.request_id} style={{ padding: '6px 0', borderBottom: '1px solid var(--line)', fontSize: 14 }}>
             <span className="link" onClick={() => open(r.request_id)}>{r.request_id}</span> — {r.client_name} / {r.employee_name} · closed {fmtDate(r.completed_at)}
           </div>)}
       </div>
@@ -272,15 +272,28 @@ function Board({ boot, open, refresh }) {
 }
 
 /* ---------- New request ---------- */
+const REQUIRED_FIELDS = ['client_name','client_contact_name','client_contact_email','employee_name','job_title','country','entity','csm_email'];
 function NewRequest({ boot, say, done }) {
   const [f, setF] = useState({});
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
-  const set = (k, v) => setF({ ...f, [k]: v });
+  const [missing, setMissing] = useState([]);
+  const set = (k, v) => { setF({ ...f, [k]: v }); if (missing.length) setMissing(missing.filter(m => m !== k)); };
   const csms = boot.users.filter(u => u.role === 'CSM');
   const hrs = boot.users.filter(u => u.role === 'HR');
 
   const submit = async () => {
+    const gaps = REQUIRED_FIELDS.filter(k => !f[k] || !String(f[k]).trim());
+    if (gaps.length) {
+      setMissing(gaps);
+      say('Please complete the required fields marked *', true);
+      return;
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(f.client_contact_email).trim())) {
+      setMissing(['client_contact_email']);
+      say('The client contact email does not look valid.', true);
+      return;
+    }
     setBusy(true);
     try {
       const { requestId } = await api('createRequest', f);
@@ -297,16 +310,18 @@ function NewRequest({ boot, say, done }) {
     <div className="card" style={{ maxWidth: 760 }}>
       <h3>New employment contract request</h3>
       <div className="grid2">
-        {[['client_name','Client name'],['client_contact_name','Client contact name'],
-          ['client_contact_email','Client contact email'],['employee_name','Employee name'],
+        {[['client_name','Client company'],['client_contact_name','Client contact name (receives contract for review)'],
+          ['client_contact_email','Client contact email (portal link & codes go here)'],['employee_name','Employee name'],
           ['job_title','Job title'],['country','Country of employment'],
-          ['entity','Employing entity'],['proposed_start_date','Proposed start date (YYYY-MM-DD)'],
-          ['target_date','Target completion date (YYYY-MM-DD)']]
-          .map(([k, l]) =>
-            <div className="frow" key={k}><label>{l}</label>
-              <input value={f[k] || ''} onChange={e => set(k, e.target.value)} /></div>)}
-        <div className="frow"><label>Assigned CSM</label>
-          <select value={f.csm_email || ''} onChange={e => set('csm_email', e.target.value)}>
+          ['entity','Employing entity'],['proposed_start_date','Proposed start date','date'],
+          ['target_date','Target completion date','date']]
+          .map(([k, l, t]) =>
+            <div className="frow" key={k}><label>{l}{REQUIRED_FIELDS.includes(k) ? ' *' : ''}</label>
+              <input type={t || 'text'} value={f[k] || ''} onChange={e => set(k, e.target.value)}
+                style={missing.includes(k) ? { borderColor: 'var(--red)' } : {}} /></div>)}
+        <div className="frow"><label>Assigned CSM *</label>
+          <select value={f.csm_email || ''} onChange={e => set('csm_email', e.target.value)}
+            style={missing.includes('csm_email') ? { borderColor: 'var(--red)' } : {}}>
             <option value="">Select...</option>
             {csms.map(u => <option key={u.email} value={u.email}>{u.name}</option>)}
           </select></div>
@@ -387,7 +402,7 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
 
       <div className="card">
         <Tracker boot={boot} stage={stage} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 28px', fontSize: 13, marginTop: 8 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 28px', fontSize: 14, marginTop: 8 }}>
           <span><b>Client:</b> {r.client_name} ({r.client_contact_name}, {r.client_contact_email})</span>
           <span><b>Employee:</b> {r.employee_name} — {r.job_title}</span>
           <span><b>Country / entity:</b> {r.country} / {r.entity}</span>
@@ -476,7 +491,7 @@ function Dec({ v, n, extra }) {
   const color = { recommend: 'var(--ok)', 'precedent-cited': 'var(--ok)', approve: 'var(--ok)', accept: 'var(--ok)',
     'flag-HR': 'var(--amber)', 'escalate-legal': 'var(--amber)', counter: 'var(--amber)',
     reject: 'var(--red)' }[v] || 'var(--ink)';
-  return <div><b style={{ color, fontSize: 12 }}>{v}</b>{n && <div className="muted">{n}</div>}{extra && <div className="muted">{extra}</div>}</div>;
+  return <div><b style={{ color, fontSize: 13 }}>{v}</b>{n && <div className="muted">{n}</div>}{extra && <div className="muted">{extra}</div>}</div>;
 }
 
 function DecisionModal({ ctx, d, close, act }) {
@@ -493,7 +508,7 @@ function DecisionModal({ ctx, d, close, act }) {
     <div className="modal-bg" onClick={close}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <h3 style={{ color: 'var(--navy)' }}>{layer.toUpperCase()} decision — {item.category}</h3>
-        <p style={{ fontSize: 13 }}>{item.description}</p>
+        <p style={{ fontSize: 14 }}>{item.description}</p>
         <div className="frow"><label>Decision</label>
           <select value={v} onChange={e => setV(e.target.value)}>
             <option value="">Select...</option>
@@ -608,9 +623,9 @@ function History({ d, boot }) {
       <h3>Audit trail</h3>
       <div className="grid2">
         <div>
-          <b style={{ fontSize: 12 }}>Stage movements</b>
+          <b style={{ fontSize: 13 }}>Stage movements</b>
           {d.stageLog.map((s, i) =>
-            <div key={i} style={{ fontSize: 12.5, padding: '5px 0', borderBottom: '1px solid var(--line)' }}>
+            <div key={i} style={{ fontSize: 13.5, padding: '5px 0', borderBottom: '1px solid var(--line)' }}>
               {fmtDT(s.timestamp)} — {s.from_stage ? (boot.stageLabels[s.from_stage] || s.from_stage) + ' → ' : ''}
               <b>{boot.stageLabels[s.to_stage] || s.to_stage}</b>
               {s.direction === 'loop-back' && <span className="pill accent" style={{ marginLeft: 6 }}>loop-back</span>}
@@ -618,9 +633,9 @@ function History({ d, boot }) {
             </div>)}
         </div>
         <div>
-          <b style={{ fontSize: 12 }}>Gate approvals</b>
+          <b style={{ fontSize: 13 }}>Gate approvals</b>
           {d.approvals.map((a, i) =>
-            <div key={i} style={{ fontSize: 12.5, padding: '5px 0', borderBottom: '1px solid var(--line)' }}>
+            <div key={i} style={{ fontSize: 13.5, padding: '5px 0', borderBottom: '1px solid var(--line)' }}>
               {fmtDT(a.timestamp)} — <b>{a.gate}</b>: {a.decision} <span className="muted">by {a.approver_name}</span>
             </div>)}
         </div>
@@ -637,7 +652,7 @@ function ReleaseModal({ d, close, act }) {
     <div className="modal-bg" onClick={close}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <h3 style={{ color: 'var(--navy)' }}>Release to client</h3>
-        <p style={{ fontSize: 13 }}>The client ({d.request.client_contact_name}, {d.request.client_contact_email}) will receive a secure review link by email. Make sure the selected draft is shared so the link in their page opens (anyone-with-link, view only).</p>
+        <p style={{ fontSize: 14 }}>The client ({d.request.client_contact_name}, {d.request.client_contact_email}) will receive a secure review link by email. Make sure the selected draft is shared so the link in their page opens (anyone-with-link, view only).</p>
         <div className="frow"><label>Draft to send</label>
           <select value={docId} onChange={e => setDocId(e.target.value)}>
             <option value="">Select document...</option>
@@ -659,7 +674,7 @@ function LogClientModal({ d, close, act }) {
     <div className="modal-bg" onClick={close}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <h3 style={{ color: 'var(--navy)' }}>Log client response received offline</h3>
-        <p style={{ fontSize: 13 }}>Use this when the client replied by email or call instead of the portal, so the record stays complete.</p>
+        <p style={{ fontSize: 14 }}>Use this when the client replied by email or call instead of the portal, so the record stays complete.</p>
         {open.map(i =>
           <div key={i.item_id} className="frow" style={{ borderBottom: '1px solid var(--line)', paddingBottom: 8 }}>
             <label>{i.category} — {i.description}</label>
