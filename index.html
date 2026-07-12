@@ -673,7 +673,12 @@ function ReassignModal({ d, boot, user, close, act }) {
 function Items({ d, boot, user, act, busy }) {
   const [adding, setAdding] = useState(null);
   const [decide, setDecide] = useState(null); // {item, layer}
+  const [editing, setEditing] = useState(null);
   const r = d.request;
+  const stage = r.current_stage;
+  const editable = i => !['resolved-accepted', 'resolved-rejected', 'withdrawn', 'with-client'].includes(String(i.item_status));
+  const canEdit = (user.role === 'AE' && r.ae_email === user.email && stage === 'INITIATED') ||
+    (['CSM', 'ADMIN'].includes(user.role) && ['INITIATED', 'REQUIREMENTS_CAPTURED', 'CSM_ASSESSMENT'].includes(stage));
   const canAdd = (['CSM', 'ADMIN'].includes(user.role) && r.current_stage !== 'COMPLETED') ||
     (user.role === 'AE' && r.current_stage === 'INITIATED' && r.ae_email === user.email);
 
@@ -695,12 +700,14 @@ function Items({ d, boot, user, act, busy }) {
               <td><Dec v={i.client_response} n={i.client_response_note} /></td>
               <td><span className="pill">{ITEM_STATUS_LABEL[i.item_status] || i.item_status}</span></td>
               <td style={{ whiteSpace: 'nowrap' }}>
-                {['CSM','ADMIN'].includes(user.role) && ['open','internal-review'].includes(i.item_status) &&
-                  <button className="btn-g" onClick={() => setDecide({ item: i, layer: 'csm' })}>CSM</button>}
-                {['HR','ADMIN'].includes(user.role) && i.csm_assessment === 'flag-HR' && ['open','internal-review'].includes(i.item_status) &&
-                  <button className="btn-g" style={{ marginLeft: 4 }} onClick={() => setDecide({ item: i, layer: 'hr' })}>HR</button>}
-                {['LEGAL','ADMIN'].includes(user.role) && i.hr_decision === 'escalate-legal' && ['open','internal-review'].includes(i.item_status) &&
-                  <button className="btn-g" style={{ marginLeft: 4 }} onClick={() => setDecide({ item: i, layer: 'legal' })}>Legal</button>}
+                {stage === 'CSM_ASSESSMENT' && ['CSM','ADMIN'].includes(user.role) && ['open','internal-review'].includes(i.item_status) &&
+                  <button className="btn-g" onClick={() => setDecide({ item: i, layer: 'csm' })}>Assess</button>}
+                {stage === 'HR_REVIEW' && ['HR','ADMIN'].includes(user.role) && i.csm_assessment === 'flag-HR' && ['open','internal-review'].includes(i.item_status) &&
+                  <button className="btn-g" style={{ marginLeft: 4 }} onClick={() => setDecide({ item: i, layer: 'hr' })}>Decide</button>}
+                {stage === 'LEGAL_REVIEW' && ['LEGAL','ADMIN'].includes(user.role) && i.hr_decision === 'escalate-legal' && ['open','internal-review'].includes(i.item_status) &&
+                  <button className="btn-g" style={{ marginLeft: 4 }} onClick={() => setDecide({ item: i, layer: 'legal' })}>Decide</button>}
+                {canEdit && editable(i) &&
+                  <button className="btn-g" style={{ marginLeft: 4 }} onClick={() => setEditing(i)}>Edit</button>}
               </td>
             </tr>))}
         </tbody>
@@ -720,6 +727,39 @@ function Items({ d, boot, user, act, busy }) {
           <button className="btn-g" onClick={() => setAdding(null)}>Cancel</button>
         </div>}
       {decide && <DecisionModal ctx={decide} d={d} close={() => setDecide(null)} act={act} />}
+      {editing && <EditItemModal item={editing} boot={boot} close={() => setEditing(null)} act={act} />}
+    </div>
+  );
+}
+
+function EditItemModal({ item, boot, close, act }) {
+  const [f, setF] = useState({ category: item.category, clause_ref: item.clause_ref || '', description: item.description });
+  return (
+    <div className="modal-bg" onClick={close}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h3 style={{ color: 'var(--navy)' }}>Edit requirement item</h3>
+        <div className="frow"><label>Category</label>
+          <select value={f.category} onChange={e => setF({ ...f, category: e.target.value })}>
+            {boot.categories.map(c => <option key={c}>{c}</option>)}
+          </select></div>
+        <div className="frow"><label>Clause reference (optional)</label>
+          <input value={f.clause_ref} onChange={e => setF({ ...f, clause_ref: e.target.value })} /></div>
+        <div className="frow"><label>Client ask</label>
+          <textarea rows="3" value={f.description} onChange={e => setF({ ...f, description: e.target.value })} /></div>
+        <button className="btn-p" disabled={!f.description.trim()}
+          onClick={() => act(async () => {
+            await api('updateItem', { itemId: item.item_id, layer: 'edit', ...f });
+            close();
+          }, 'Item updated.')}>Save changes</button>
+        <button className="btn-g" style={{ marginLeft: 8 }} onClick={() => {
+          const note = prompt('Withdraw this item? Add a short reason (goes on the record):');
+          if (note && note.trim()) act(async () => {
+            await api('updateItem', { itemId: item.item_id, layer: 'withdraw', note: note.trim() });
+            close();
+          }, 'Item withdrawn.');
+        }}>Withdraw item</button>
+        <button className="btn-g" style={{ marginLeft: 8 }} onClick={close}>Cancel</button>
+      </div>
     </div>
   );
 }
