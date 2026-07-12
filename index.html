@@ -203,9 +203,10 @@ function Queue({ boot, user, open }) {
   const mine = boot.requests.filter(r => {
     if (r.current_stage === 'COMPLETED') return false;
     const s = r.current_stage;
-    if (user.role === 'CSM') return r.csm_email === user.email && ['INITIATED','REQUIREMENTS_CAPTURED','CSM_ASSESSMENT','READY_TO_RELEASE','CLIENT_REVIEW'].includes(s);
+    if (user.role === 'CSM') return (s === 'INITIATED' && !r.csm_email) ||
+      (r.csm_email === user.email && ['INITIATED','REQUIREMENTS_CAPTURED','CSM_ASSESSMENT','READY_TO_RELEASE','CLIENT_REVIEW'].includes(s));
     if (user.role === 'HR') return ['HR_REVIEW','READY_TO_RELEASE','EC_ISSUANCE'].includes(s) && (!r.hr_email || r.hr_email === user.email);
-    if (user.role === 'LEGAL') return s === 'LEGAL_REVIEW';
+    if (user.role === 'LEGAL') return s === 'LEGAL_REVIEW' || ['pending','issued'].includes(String(r.deposit_invoice_status));
     if (user.role === 'AE') return r.ae_email === user.email;
     return true; // ADMIN sees all
   }).sort((a, b) => new Date(a.stage_entered_at) - new Date(b.stage_entered_at));
@@ -255,7 +256,7 @@ function Board({ boot, open, refresh }) {
                   <div className="t"><span className={'rag ' + r.rag_status}></span>{r.request_id}</div>
                   <div className="m">{r.client_name}</div>
                   <div className="m">{r.employee_name} · {r.country}</div>
-                  <div className="m">{hoursSince(r.stage_entered_at)}h in stage{Number(r.iteration_count) > 0 ? ` · iter ${r.iteration_count}` : ''}</div>
+                  <div className="m">{hoursSince(r.stage_entered_at)}h in stage{Number(r.iteration_count) > 0 ? ` · iter ${r.iteration_count}` : ''}{r.deposit_invoice_status !== 'paid' ? ` · deposit ${r.deposit_invoice_status || 'pending'}` : ''}</div>
                 </div>)}
             </div>);
         })}
@@ -272,7 +273,8 @@ function Board({ boot, open, refresh }) {
 }
 
 /* ---------- New request ---------- */
-const REQUIRED_FIELDS = ['client_name','client_contact_name','client_contact_email','employee_name','job_title','country','entity','csm_email'];
+const REQUIRED_FIELDS = ['client_name','client_contact_name','client_contact_email','employee_name','job_title','country','entity','region','visa_required'];
+const DECLARATIONS = [['feasibility_confirmed','Role feasibility approved (risk / insurance check passed)'],['msa_confirmed','MSA signed and in place'],['addendum_confirmed','Fee addendum in place'],['workorder_confirmed','Work order / SOW received from client']];
 function NewRequest({ boot, say, done }) {
   const [f, setF] = useState({});
   const [items, setItems] = useState([]);
@@ -292,6 +294,12 @@ function NewRequest({ boot, say, done }) {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(f.client_contact_email).trim())) {
       setMissing(['client_contact_email']);
       say('The client contact email does not look valid.', true);
+      return;
+    }
+    const declGaps = DECLARATIONS.filter(([k]) => f[k] !== true).map(([k]) => k);
+    if (declGaps.length) {
+      setMissing(declGaps);
+      say('All documentation declarations must be confirmed before submitting.', true);
       return;
     }
     setBusy(true);
@@ -319,11 +327,18 @@ function NewRequest({ boot, say, done }) {
             <div className="frow" key={k}><label>{l}{REQUIRED_FIELDS.includes(k) ? ' *' : ''}</label>
               <input type={t || 'text'} value={f[k] || ''} onChange={e => set(k, e.target.value)}
                 style={missing.includes(k) ? { borderColor: 'var(--red)' } : {}} /></div>)}
-        <div className="frow"><label>Assigned CSM *</label>
-          <select value={f.csm_email || ''} onChange={e => set('csm_email', e.target.value)}
-            style={missing.includes('csm_email') ? { borderColor: 'var(--red)' } : {}}>
+        <div className="frow"><label>Region *</label>
+          <select value={f.region || ''} onChange={e => set('region', e.target.value)}
+            style={missing.includes('region') ? { borderColor: 'var(--red)' } : {}}>
             <option value="">Select...</option>
-            {csms.map(u => <option key={u.email} value={u.email}>{u.name}</option>)}
+            {(boot.regions || []).map(r => <option key={r} value={r}>{r}</option>)}
+          </select></div>
+        <div className="frow"><label>Visa required for this hire? *</label>
+          <select value={f.visa_required || ''} onChange={e => set('visa_required', e.target.value)}
+            style={missing.includes('visa_required') ? { borderColor: 'var(--red)' } : {}}>
+            <option value="">Select...</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
           </select></div>
         <div className="frow"><label>Assigned HR (optional)</label>
           <select value={f.hr_email || ''} onChange={e => set('hr_email', e.target.value)}>
@@ -331,6 +346,18 @@ function NewRequest({ boot, say, done }) {
             {hrs.map(u => <option key={u.email} value={u.email}>{u.name}</option>)}
           </select></div>
       </div>
+
+      <h3 style={{ marginTop: 18 }}>Documentation declarations</h3>
+      <div className="muted" style={{ marginBottom: 8 }}>Confirming these is mandatory. Each confirmation is recorded against your name.</div>
+      {DECLARATIONS.map(([k, l]) =>
+        <label key={k} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6, fontSize: 14,
+          color: missing.includes(k) ? 'var(--red)' : 'var(--ink)', cursor: 'pointer' }}>
+          <input type="checkbox" style={{ width: 'auto' }} checked={f[k] === true}
+            onChange={e => set(k, e.target.checked)} />
+          {l}
+        </label>)}
+      <div className="frow" style={{ marginTop: 8, maxWidth: 400 }}><label>Feasibility reference (who approved / when)</label>
+        <input value={f.feasibility_ref || ''} onChange={e => set('feasibility_ref', e.target.value)} /></div>
       <div className="frow"><label>Notes / context from the client</label>
         <textarea rows="3" value={f.notes || ''} onChange={e => set('notes', e.target.value)} /></div>
 
@@ -374,14 +401,20 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
   };
 
   const stage = r.current_stage;
+  const wasReturned = stage === 'INITIATED' && Number(r.returns_to_sales || 0) > 0;
   const gateOwnerRole = { INITIATED: 'CSM', REQUIREMENTS_CAPTURED: 'CSM', CSM_ASSESSMENT: 'CSM', HR_REVIEW: 'HR', LEGAL_REVIEW: 'LEGAL' }[stage];
   const canGate = gateOwnerRole && (user.role === gateOwnerRole || user.role === 'ADMIN');
   const canRelease = stage === 'READY_TO_RELEASE' && ['CSM', 'HR', 'ADMIN'].includes(user.role);
   const canComplete = stage === 'EC_ISSUANCE' && ['HR', 'ADMIN'].includes(user.role);
   const canLogClient = stage === 'CLIENT_REVIEW' && ['CSM', 'HR', 'ADMIN'].includes(user.role);
+  const canReturn = stage === 'REQUIREMENTS_CAPTURED' && ['CSM', 'ADMIN'].includes(user.role);
+  const canResubmit = wasReturned && (user.role === 'ADMIN' || r.ae_email === user.email);
+  const canReassign = ['CSM', 'HR', 'ADMIN'].includes(user.role) && stage !== 'COMPLETED';
+  const canDeposit = ['LEGAL', 'ADMIN'].includes(user.role) && r.deposit_invoice_status !== 'paid' && stage !== 'COMPLETED';
+  const depositColor = { pending: 'var(--red)', issued: 'var(--amber)', paid: 'var(--ok)' }[r.deposit_invoice_status] || '#889';
 
   const gateLabel = {
-    INITIATED: 'Confirm & start requirements capture',
+    INITIATED: 'Accept & assign handling CSM',
     REQUIREMENTS_CAPTURED: 'All requirements captured - start assessment',
     CSM_ASSESSMENT: 'Assessment complete - route onward',
     HR_REVIEW: 'HR review complete - route onward',
@@ -408,17 +441,33 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
           <span><b>Country / entity:</b> {r.country} / {r.entity}</span>
           <span><b>Start:</b> {fmtDate(r.proposed_start_date) || 'TBC'}</span>
           <span><b>Target:</b> {fmtDate(r.target_date) || '—'}</span>
-          <span><b>CSM:</b> {r.csm_email}</span>
+          <span><b>Region:</b> {r.region}</span>
+          <span><b>Visa:</b> {String(r.visa_required) === 'yes' ? 'Required' : 'No'}</span>
+          <span><b>CSM:</b> {r.csm_email || '(awaiting intake assignment)'}</span>
           <span><b>AE:</b> {r.ae_email}</span>
           <span><b>In stage:</b> {hoursSince(r.stage_entered_at)}h</span>
+          <span><b>Deposit invoice:</b> <b style={{ color: depositColor }}>{r.deposit_invoice_status || 'pending'}</b>
+            {Number(r.returns_to_sales) > 0 && <span className="muted"> · returned to Sales {r.returns_to_sales}x</span>}</span>
         </div>
         <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {canGate && <button className="btn-p" disabled={busy}
+          {stage === 'INITIATED' && canGate && !wasReturned &&
+            <button className="btn-p" disabled={busy} onClick={() => setModal('assign')}>{gateLabel}</button>}
+          {canResubmit && <button className="btn-p" disabled={busy}
+            onClick={() => act(() => api('resubmitRequest', { requestId: id }), 'Resubmitted to the CSM.')}>Resubmit - documentation complete</button>}
+          {stage === 'INITIATED' && canGate && wasReturned && !canResubmit &&
+            <span className="muted">Returned to Sales - awaiting the AE's resubmission.</span>}
+          {stage !== 'INITIATED' && canGate && <button className="btn-p" disabled={busy}
             onClick={() => act(() => api('approveGate', { requestId: id }), 'Gate approved.')}>{gateLabel}</button>}
+          {canReturn && <button className="btn-g" disabled={busy} onClick={() => setModal('return')}>Return to Sales - docs incomplete</button>}
           {canRelease && <button className="btn-a" disabled={busy} onClick={() => setModal('release')}>Release to client</button>}
           {canLogClient && <button className="btn-g" disabled={busy} onClick={() => setModal('logclient')}>Log client response (received offline)</button>}
-          {canComplete && <button className="btn-p" disabled={busy}
-            onClick={() => act(() => api('completeRequest', { requestId: id }), 'Request completed.')}>Complete - EC signed & filed</button>}
+          {canDeposit && r.deposit_invoice_status === 'pending' && <button className="btn-g" disabled={busy}
+            onClick={() => act(() => api('markDeposit', { requestId: id, status: 'issued' }), 'Deposit marked issued.')}>Mark deposit invoice issued</button>}
+          {canDeposit && <button className="btn-g" disabled={busy}
+            onClick={() => act(() => api('markDeposit', { requestId: id, status: 'paid' }), 'Deposit marked paid.')}>Mark deposit paid</button>}
+          {canComplete && <button className="btn-p" disabled={busy} title={r.deposit_invoice_status !== 'paid' ? 'Blocked: deposit not paid' : ''}
+            onClick={() => act(() => api('completeRequest', { requestId: id }), 'Request completed.')}>Complete - EC signed & filed{r.deposit_invoice_status !== 'paid' ? ' (blocked: deposit unpaid)' : ''}</button>}
+          {canReassign && <button className="btn-g" disabled={busy} onClick={() => setModal('reassign')}>Reassign</button>}
         </div>
       </div>
 
@@ -429,6 +478,85 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
 
       {modal === 'release' && <ReleaseModal d={d} close={() => setModal(null)} act={act} />}
       {modal === 'logclient' && <LogClientModal d={d} close={() => setModal(null)} act={act} />}
+      {modal === 'assign' && <AssignModal d={d} boot={boot} user={user} close={() => setModal(null)} act={act} />}
+      {modal === 'return' && <ReturnModal d={d} close={() => setModal(null)} act={act} />}
+      {modal === 'reassign' && <ReassignModal d={d} boot={boot} close={() => setModal(null)} act={act} />}
+    </div>
+  );
+}
+
+function AssignModal({ d, boot, user, close, act }) {
+  const csms = boot.users.filter(u => u.role === 'CSM' && String(u.active).toLowerCase() !== 'no');
+  const [email, setEmail] = useState(user.role === 'CSM' ? user.email : '');
+  return (
+    <div className="modal-bg" onClick={close}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h3 style={{ color: 'var(--navy)' }}>Accept & assign handling CSM</h3>
+        <p style={{ fontSize: 14 }}>As regional intake, choose who will handle this request (defaulting to yourself). This starts the requirements capture clock and notifies Legal Ops to issue the deposit invoice.</p>
+        <div className="frow"><label>Handling CSM</label>
+          <select value={email} onChange={e => setEmail(e.target.value)}>
+            <option value="">Select...</option>
+            {csms.map(u => <option key={u.email} value={u.email}>{u.name}{u.region ? ' (' + u.region + ')' : ''}</option>)}
+          </select></div>
+        <button className="btn-p" disabled={!email}
+          onClick={() => act(async () => { await api('approveGate', { requestId: d.request.request_id, assignCsmEmail: email }); close(); }, 'Accepted and assigned.')}>Accept & assign</button>
+        <button className="btn-g" style={{ marginLeft: 8 }} onClick={close}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function ReturnModal({ d, close, act }) {
+  const CHECKS = ['MSA missing or unsigned', 'Fee addendum missing', 'Work order / SOW missing', 'New hire form fields incomplete', 'Visa information missing', 'Other'];
+  const [sel, setSel] = useState([]);
+  const [note, setNote] = useState('');
+  const toggle = c => setSel(sel.includes(c) ? sel.filter(x => x !== c) : [...sel, c]);
+  return (
+    <div className="modal-bg" onClick={close}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h3 style={{ color: 'var(--navy)' }}>Return to Sales - documentation incomplete</h3>
+        <p style={{ fontSize: 14 }}>The AE ({d.request.ae_email}) will be notified with this list and must resubmit once complete.</p>
+        {CHECKS.map(c =>
+          <label key={c} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 5, fontSize: 14, cursor: 'pointer' }}>
+            <input type="checkbox" style={{ width: 'auto' }} checked={sel.includes(c)} onChange={() => toggle(c)} />{c}
+          </label>)}
+        <div className="frow" style={{ marginTop: 8 }}><label>Details</label>
+          <textarea rows="2" value={note} onChange={e => setNote(e.target.value)} placeholder="Specifics the AE needs to fix" /></div>
+        <button className="btn-p" disabled={!sel.length && !note.trim()}
+          onClick={() => act(async () => {
+            const reason = sel.join('; ') + (note.trim() ? ' - ' + note.trim() : '');
+            await api('returnToSales', { requestId: d.request.request_id, reason }); close();
+          }, 'Returned to Sales - AE notified.')}>Return to Sales</button>
+        <button className="btn-g" style={{ marginLeft: 8 }} onClick={close}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function ReassignModal({ d, boot, close, act }) {
+  const [role, setRole] = useState('CSM');
+  const [email, setEmail] = useState('');
+  const [reason, setReason] = useState('');
+  const pool = boot.users.filter(u => u.role === role && String(u.active).toLowerCase() !== 'no');
+  return (
+    <div className="modal-bg" onClick={close}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h3 style={{ color: 'var(--navy)' }}>Reassign owner</h3>
+        <div className="frow"><label>Role to reassign</label>
+          <select value={role} onChange={e => { setRole(e.target.value); setEmail(''); }}>
+            <option value="CSM">CSM</option><option value="HR">HR</option>
+          </select></div>
+        <div className="frow"><label>New owner</label>
+          <select value={email} onChange={e => setEmail(e.target.value)}>
+            <option value="">Select...</option>
+            {pool.map(u => <option key={u.email} value={u.email}>{u.name}{u.region ? ' (' + u.region + ')' : ''}</option>)}
+          </select></div>
+        <div className="frow"><label>Reason (goes on the audit trail)</label>
+          <input value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. leave cover, workload rebalancing" /></div>
+        <button className="btn-p" disabled={!email}
+          onClick={() => act(async () => { await api('reassign', { requestId: d.request.request_id, role, email, reason }); close(); }, 'Reassigned and notified.')}>Reassign</button>
+        <button className="btn-g" style={{ marginLeft: 8 }} onClick={close}>Cancel</button>
+      </div>
     </div>
   );
 }
@@ -741,7 +869,8 @@ function Metrics({ boot }) {
       done: done.length,
       medCycle: med(cycles).toFixed(1), p90Cycle: p90(cycles).toFixed(1),
       firstPass, legalPct, byStage, avg, catCount, catLoop,
-      avgIter: done.length ? (done.reduce((s, r) => s + Number(r.iteration_count || 0), 0) / done.length).toFixed(1) : '0'
+      avgIter: done.length ? (done.reduce((s, r) => s + Number(r.iteration_count || 0), 0) / done.length).toFixed(1) : '0',
+      returns: reqs.reduce((s, r) => s + Number(r.returns_to_sales || 0), 0)
     };
   }, [boot]);
 
@@ -753,7 +882,7 @@ function Metrics({ boot }) {
           {[['Live requests', m.live], ['Completed', m.done],
             ['Median cycle (days)', m.medCycle], ['P90 cycle (days)', m.p90Cycle],
             ['First-pass acceptance', m.firstPass + '%'], ['Avg iterations', m.avgIter],
-            ['% needing Legal', m.legalPct + '%']]
+            ['% needing Legal', m.legalPct + '%'], ['Returns to Sales', m.returns]]
             .map(([l, v]) => <div className="kpi" key={l}><div className="v">{v}</div><div className="l">{l}</div></div>)}
         </div>
         <div className="muted" style={{ marginTop: 6 }}>Cycle time is end-to-end calendar days from initiation to signed EC. Time with the client is visible in the stage table below and is excluded from internal SLA breaches.</div>
