@@ -267,6 +267,11 @@ function Queue({ boot, user, open }) {
 /* ---------- Pipeline board ---------- */
 function Board({ boot, open, refresh }) {
   const [q, setQ] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const doRefresh = async () => {
+    setRefreshing(true);
+    try { await refresh(); } finally { setRefreshing(false); }
+  };
   const live = boot.requests.filter(r =>
     (r.request_id + r.client_name + r.employee_name + r.country + r.csm_email)
       .toLowerCase().includes(q.toLowerCase()));
@@ -276,7 +281,7 @@ function Board({ boot, open, refresh }) {
     <div>
       <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
         <input placeholder="Filter by client, employee, country, CSM..." value={q} onChange={e => setQ(e.target.value)} style={{ maxWidth: 380 }} />
-        <button className="btn-g" onClick={refresh}>Refresh</button>
+        <button className="btn-g" disabled={refreshing} onClick={doRefresh}>{refreshing ? 'Refreshing...' : 'Refresh'}</button>
       </div>
       <div className="board">
         {cols.map(s => {
