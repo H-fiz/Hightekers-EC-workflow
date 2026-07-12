@@ -81,8 +81,8 @@
 /* ============================================================
    CONFIG - set these two values after deployment
    ============================================================ */
-const API_URL = 'https://script.google.com/macros/s/AKfycbznwSg6Ormb50MPXT92WtDGXQxJWtPhxOxO5s0F0MjoFqAv_3nZQSFQUaUjqWeZzHAe/exec';
-const OAUTH_CLIENT_ID = '607658064492-64b3242hl69skmdsb9rvmg6n4bmc28vp.apps.googleusercontent.com';
+const API_URL = 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
+const OAUTH_CLIENT_ID = 'PASTE_YOUR_GOOGLE_OAUTH_CLIENT_ID_HERE';
 
 const { useState, useEffect, useMemo, useRef } = React;
 
@@ -428,7 +428,7 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
   const canLogClient = stage === 'CLIENT_REVIEW' && ['CSM', 'HR', 'ADMIN'].includes(user.role);
   const canReturn = stage === 'REQUIREMENTS_CAPTURED' && ['CSM', 'ADMIN'].includes(user.role);
   const canResubmit = wasReturned && (user.role === 'ADMIN' || r.ae_email === user.email);
-  const canReassign = ['CSM', 'HR', 'ADMIN'].includes(user.role) && stage !== 'COMPLETED';
+  const canReassign = ['CSM', 'HR', 'ADMIN'].includes(user.role) && !['COMPLETED', 'INITIATED'].includes(stage);
   const depStatus = r.deposit_invoice_status || 'pending';
   const DEP_CHAIN = ['pending', 'requested', 'issued', 'paid'];
   const depIdx = DEP_CHAIN.indexOf(depStatus);
@@ -511,13 +511,15 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
       {modal === 'logclient' && <LogClientModal d={d} close={() => setModal(null)} act={act} />}
       {modal === 'assign' && <AssignModal d={d} boot={boot} user={user} close={() => setModal(null)} act={act} />}
       {modal === 'return' && <ReturnModal d={d} close={() => setModal(null)} act={act} />}
-      {modal === 'reassign' && <ReassignModal d={d} boot={boot} close={() => setModal(null)} act={act} />}
+      {modal === 'reassign' && <ReassignModal d={d} boot={boot} user={user} close={() => setModal(null)} act={act} />}
     </div>
   );
 }
 
 function AssignModal({ d, boot, user, close, act }) {
-  const csms = boot.users.filter(u => u.role === 'CSM' && String(u.active).toLowerCase() !== 'no');
+  const [users, setUsers] = useState(boot.users);
+  useEffect(() => { api('bootstrap').then(b => setUsers(b.users)).catch(() => {}); }, []);
+  const csms = users.filter(u => u.role === 'CSM' && String(u.active).toLowerCase() !== 'no');
   const [email, setEmail] = useState(user.role === 'CSM' ? user.email : '');
   return (
     <div className="modal-bg" onClick={close}>
@@ -564,18 +566,21 @@ function ReturnModal({ d, close, act }) {
   );
 }
 
-function ReassignModal({ d, boot, close, act }) {
-  const [role, setRole] = useState('CSM');
+function ReassignModal({ d, boot, user, close, act }) {
+  const roleOptions = user.role === 'ADMIN' ? ['CSM', 'HR'] : [user.role];
+  const [role, setRole] = useState(roleOptions[0]);
   const [email, setEmail] = useState('');
   const [reason, setReason] = useState('');
-  const pool = boot.users.filter(u => u.role === role && String(u.active).toLowerCase() !== 'no');
+  const [users, setUsers] = useState(boot.users);
+  useEffect(() => { api('bootstrap').then(b => setUsers(b.users)).catch(() => {}); }, []);
+  const pool = users.filter(u => u.role === role && String(u.active).toLowerCase() !== 'no');
   return (
     <div className="modal-bg" onClick={close}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <h3 style={{ color: 'var(--navy)' }}>Reassign owner</h3>
         <div className="frow"><label>Role to reassign</label>
-          <select value={role} onChange={e => { setRole(e.target.value); setEmail(''); }}>
-            <option value="CSM">CSM</option><option value="HR">HR</option>
+          <select value={role} onChange={e => { setRole(e.target.value); setEmail(''); }} disabled={roleOptions.length === 1}>
+            {roleOptions.map(r => <option key={r} value={r}>{r}</option>)}
           </select></div>
         <div className="frow"><label>New owner</label>
           <select value={email} onChange={e => setEmail(e.target.value)}>
