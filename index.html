@@ -152,6 +152,12 @@ function App() {
     return () => clearInterval(t);
   }, [user]);
 
+  useEffect(() => {
+    if (boot && /^#REQ-\d+/.test(window.location.hash)) {
+      setView({ name: 'detail', id: window.location.hash.slice(1) });
+    }
+  }, [boot]);
+
   if (!user) return (
     <div className="signin">
       <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--navy)' }}>EC Workflow Engine</div>
@@ -163,7 +169,8 @@ function App() {
   if (!boot) return <div className="signin"><div>Loading...</div></div>;
 
   const nav = [
-    ['queue', 'My queue'], ['board', 'Pipeline'], ['new', 'New request'],
+    ['queue', 'My queue'], ['board', 'Pipeline'],
+    ...(effUser.role !== 'LEGAL' ? [['new', 'New request']] : []),
     ['metrics', 'Performance'], ...(effUser.role === 'ADMIN' ? [['admin', 'Admin']] : [])
   ];
 
@@ -432,14 +439,10 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
   const depStatus = r.deposit_invoice_status || 'pending';
   const DEP_CHAIN = ['pending', 'requested', 'issued', 'paid'];
   const depIdx = DEP_CHAIN.indexOf(depStatus);
-  const depForwardRole = { requested: 'CSM', issued: 'LEGAL', paid: 'LEGAL' };
-  const depNext = DEP_CHAIN[depIdx + 1];
-  const canDepForward = depNext && stage !== 'COMPLETED' &&
-    (user.role === 'ADMIN' || user.role === depForwardRole[depNext] ||
-     (user.role === 'LEGAL' && ['issued', 'paid'].includes(depNext)));
-  const canDepRevert = depIdx > 0 && stage !== 'COMPLETED' &&
-    (user.role === 'ADMIN' || user.role === ({ requested: 'CSM', issued: 'LEGAL', paid: 'LEGAL' }[depStatus]));
-  const depForwardLabel = { requested: 'Confirm deposit requested from Legal', issued: 'Mark deposit invoice issued', paid: 'Mark deposit paid' }[depNext];
+  const depNext = depStatus === 'pending' ? null : DEP_CHAIN[depIdx + 1];
+  const canDepForward = depNext && stage !== 'COMPLETED' && ['LEGAL', 'ADMIN'].includes(user.role);
+  const canDepRevert = depIdx > 1 && stage !== 'COMPLETED' && ['LEGAL', 'ADMIN'].includes(user.role);
+  const depForwardLabel = { issued: 'Mark deposit invoice issued', paid: 'Mark deposit paid' }[depNext];
   const depositColor = { pending: 'var(--red)', requested: 'var(--amber)', issued: 'var(--amber)', paid: 'var(--ok)' }[depStatus] || '#889';
 
   const gateLabel = {
@@ -475,7 +478,7 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
           <span><b>CSM:</b> {r.csm_email || '(awaiting intake assignment)'}</span>
           <span><b>AE:</b> {r.ae_email}</span>
           <span><b>In stage:</b> {hoursSince(r.stage_entered_at)}h</span>
-          <span><b>Deposit invoice:</b> <b style={{ color: depositColor }}>{depStatus}</b>
+          <span><b>Deposit invoice:</b> <b style={{ color: depositColor }}>{depStatus === 'pending' ? 'pending (auto-requested at stage 2)' : depStatus}</b>
             {Number(r.returns_to_sales) > 0 && <span className="muted"> · returned to Sales {r.returns_to_sales}x</span>}</span>
         </div>
         <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -699,7 +702,7 @@ function Docs({ d, user, act, busy }) {
   const [mode, setMode] = useState(null);
   const [f, setF] = useState({ doc_type: 'draft-EC' });
   const fileRef = useRef();
-  const types = ['NHF', 'draft-EC', 'client-markup', 'final-EC', 'signed-EC', 'other'];
+  const types = ['MSA', 'addendum', 'work-order', 'feasibility-form', 'NHF', 'draft-EC', 'client-markup', 'final-EC', 'signed-EC', 'other'];
   const save = () => act(async () => {
     if (mode === 'upload') {
       const file = fileRef.current.files[0];
