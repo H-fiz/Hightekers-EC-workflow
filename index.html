@@ -81,18 +81,19 @@
 /* ============================================================
    CONFIG - set these two values after deployment
    ============================================================ */
-const API_URL = 'https://script.google.com/macros/s/AKfycbznwSg6Ormb50MPXT92WtDGXQxJWtPhxOxO5s0F0MjoFqAv_3nZQSFQUaUjqWeZzHAe/exec';
-const OAUTH_CLIENT_ID = '607658064492-64b3242hl69skmdsb9rvmg6n4bmc28vp.apps.googleusercontent.com';
+const API_URL = 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
+const OAUTH_CLIENT_ID = 'PASTE_YOUR_GOOGLE_OAUTH_CLIENT_ID_HERE';
 
 const { useState, useEffect, useMemo, useRef } = React;
 
 /* ---------- API layer ---------- */
 let ID_TOKEN = null;
+let ACT_AS = 'ADMIN';
 async function api(action, body = {}) {
   const res = await fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ ...body, action, idToken: ID_TOKEN })
+    body: JSON.stringify({ ...body, action, idToken: ID_TOKEN, actAs: ACT_AS !== 'ADMIN' ? ACT_AS : undefined })
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error);
@@ -116,6 +117,12 @@ function App() {
   const [view, setView] = useState({ name: 'queue' });
   const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [testRole, setTestRole] = useState('ADMIN');
+  const setRole = (r) => {
+    ACT_AS = r; setTestRole(r);
+    if (r !== 'ADMIN' && view.name === 'admin') setView({ name: 'queue' });
+  };
+  const effUser = user && testRole !== 'ADMIN' ? { ...user, role: testRole } : user;
 
   const say = (text, err) => { setToast({ text, err }); setTimeout(() => setToast(null), 4500); };
 
@@ -157,7 +164,7 @@ function App() {
 
   const nav = [
     ['queue', 'My queue'], ['board', 'Pipeline'], ['new', 'New request'],
-    ['metrics', 'Performance'], ...(user.role === 'ADMIN' ? [['admin', 'Admin']] : [])
+    ['metrics', 'Performance'], ...(effUser.role === 'ADMIN' ? [['admin', 'Admin']] : [])
   ];
 
   return (
@@ -170,18 +177,30 @@ function App() {
         </div>
         <div style={{ fontSize: 13, color: '#C9D4E2', display: 'flex', alignItems: 'center', gap: 10 }}>
           <span>{user.name} · {user.role}</span>
+          {user.role === 'ADMIN' &&
+            <select style={{ width: 'auto', padding: '3px 6px', fontSize: 12, background: '#fff',
+              border: testRole !== 'ADMIN' ? '2px solid var(--accent)' : '1px solid var(--line)' }}
+              value={testRole} onChange={e => setRole(e.target.value)}>
+              {['ADMIN', 'AE', 'CSM', 'HR', 'LEGAL'].map(r => <option key={r} value={r}>View as: {r}</option>)}
+            </select>}
           <button className="btn-g" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => {
-            ID_TOKEN = null;
+            ID_TOKEN = null; ACT_AS = 'ADMIN';
             if (window.google) google.accounts.id.disableAutoSelect();
-            setBoot(null); setUser(null); setView({ name: 'queue' });
+            setBoot(null); setUser(null); setTestRole('ADMIN'); setView({ name: 'queue' });
           }}>Sign out</button>
         </div>
       </div>
+      {testRole !== 'ADMIN' &&
+        <div style={{ background: '#FAEEDA', color: '#854F0B', padding: '7px 20px', display: 'flex',
+          justifyContent: 'space-between', alignItems: 'center', fontSize: 13, fontWeight: 600 }}>
+          <span>Testing as {testRole} — actions are recorded as "{user.name} (as {testRole})"</span>
+          <button className="btn-g" style={{ padding: '3px 10px', fontSize: 12 }} onClick={() => setRole('ADMIN')}>Exit test role</button>
+        </div>}
       <div className="wrap">
-        {view.name === 'queue' && <Queue boot={boot} user={user} open={id => setView({ name: 'detail', id })} />}
+        {view.name === 'queue' && <Queue boot={boot} user={effUser} open={id => setView({ name: 'detail', id })} />}
         {view.name === 'board' && <Board boot={boot} open={id => setView({ name: 'detail', id })} refresh={refresh} />}
         {view.name === 'new' && <NewRequest boot={boot} say={say} done={id => { refresh(); setView({ name: 'detail', id }); }} />}
-        {view.name === 'detail' && <Detail id={view.id} boot={boot} user={user} say={say} refreshAll={refresh} back={() => setView({ name: 'board' })} />}
+        {view.name === 'detail' && <Detail id={view.id} boot={boot} user={effUser} say={say} refreshAll={refresh} back={() => setView({ name: 'board' })} />}
         {view.name === 'metrics' && <Metrics boot={boot} />}
         {view.name === 'admin' && <Admin boot={boot} say={say} refresh={refresh} />}
       </div>
@@ -213,7 +232,7 @@ function Queue({ boot, user, open }) {
     if (user.role === 'CSM') return (s === 'INITIATED' && !r.csm_email) ||
       (r.csm_email === user.email && ['INITIATED','REQUIREMENTS_CAPTURED','CSM_ASSESSMENT','READY_TO_RELEASE','CLIENT_REVIEW'].includes(s));
     if (user.role === 'HR') return ['HR_REVIEW','READY_TO_RELEASE','EC_ISSUANCE'].includes(s) && (!r.hr_email || r.hr_email === user.email);
-    if (user.role === 'LEGAL') return s === 'LEGAL_REVIEW' || ['pending','issued'].includes(String(r.deposit_invoice_status));
+    if (user.role === 'LEGAL') return s === 'LEGAL_REVIEW' || ['requested','issued'].includes(String(r.deposit_invoice_status));
     if (user.role === 'AE') return r.ae_email === user.email;
     return true; // ADMIN sees all
   }).sort((a, b) => new Date(a.stage_entered_at) - new Date(b.stage_entered_at));
@@ -410,8 +429,18 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
   const canReturn = stage === 'REQUIREMENTS_CAPTURED' && ['CSM', 'ADMIN'].includes(user.role);
   const canResubmit = wasReturned && (user.role === 'ADMIN' || r.ae_email === user.email);
   const canReassign = ['CSM', 'HR', 'ADMIN'].includes(user.role) && stage !== 'COMPLETED';
-  const canDeposit = ['LEGAL', 'ADMIN'].includes(user.role) && r.deposit_invoice_status !== 'paid' && stage !== 'COMPLETED';
-  const depositColor = { pending: 'var(--red)', issued: 'var(--amber)', paid: 'var(--ok)' }[r.deposit_invoice_status] || '#889';
+  const depStatus = r.deposit_invoice_status || 'pending';
+  const DEP_CHAIN = ['pending', 'requested', 'issued', 'paid'];
+  const depIdx = DEP_CHAIN.indexOf(depStatus);
+  const depForwardRole = { requested: 'CSM', issued: 'LEGAL', paid: 'LEGAL' };
+  const depNext = DEP_CHAIN[depIdx + 1];
+  const canDepForward = depNext && stage !== 'COMPLETED' &&
+    (user.role === 'ADMIN' || user.role === depForwardRole[depNext] ||
+     (user.role === 'LEGAL' && ['issued', 'paid'].includes(depNext)));
+  const canDepRevert = depIdx > 0 && stage !== 'COMPLETED' &&
+    (user.role === 'ADMIN' || user.role === ({ requested: 'CSM', issued: 'LEGAL', paid: 'LEGAL' }[depStatus]));
+  const depForwardLabel = { requested: 'Confirm deposit requested from Legal', issued: 'Mark deposit invoice issued', paid: 'Mark deposit paid' }[depNext];
+  const depositColor = { pending: 'var(--red)', requested: 'var(--amber)', issued: 'var(--amber)', paid: 'var(--ok)' }[depStatus] || '#889';
 
   const gateLabel = {
     INITIATED: 'Accept & assign handling CSM',
@@ -446,7 +475,7 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
           <span><b>CSM:</b> {r.csm_email || '(awaiting intake assignment)'}</span>
           <span><b>AE:</b> {r.ae_email}</span>
           <span><b>In stage:</b> {hoursSince(r.stage_entered_at)}h</span>
-          <span><b>Deposit invoice:</b> <b style={{ color: depositColor }}>{r.deposit_invoice_status || 'pending'}</b>
+          <span><b>Deposit invoice:</b> <b style={{ color: depositColor }}>{depStatus}</b>
             {Number(r.returns_to_sales) > 0 && <span className="muted"> · returned to Sales {r.returns_to_sales}x</span>}</span>
         </div>
         <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -461,10 +490,12 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
           {canReturn && <button className="btn-g" disabled={busy} onClick={() => setModal('return')}>Return to Sales - docs incomplete</button>}
           {canRelease && <button className="btn-a" disabled={busy} onClick={() => setModal('release')}>Release to client</button>}
           {canLogClient && <button className="btn-g" disabled={busy} onClick={() => setModal('logclient')}>Log client response (received offline)</button>}
-          {canDeposit && r.deposit_invoice_status === 'pending' && <button className="btn-g" disabled={busy}
-            onClick={() => act(() => api('markDeposit', { requestId: id, status: 'issued' }), 'Deposit marked issued.')}>Mark deposit invoice issued</button>}
-          {canDeposit && <button className="btn-g" disabled={busy}
-            onClick={() => act(() => api('markDeposit', { requestId: id, status: 'paid' }), 'Deposit marked paid.')}>Mark deposit paid</button>}
+          {canDepForward && <button className="btn-g" disabled={busy}
+            onClick={() => act(() => api('markDeposit', { requestId: id, status: depNext }), 'Deposit marked ' + depNext + '.')}>{depForwardLabel}</button>}
+          {canDepRevert && <button className="btn-g" disabled={busy} onClick={() => {
+            const reason = prompt('Revert deposit from "' + depStatus + '" to "' + DEP_CHAIN[depIdx - 1] + '".\nReason (required, goes on the audit trail):');
+            if (reason && reason.trim()) act(() => api('markDeposit', { requestId: id, status: DEP_CHAIN[depIdx - 1], reason: reason.trim() }), 'Deposit reverted.');
+          }}>Revert deposit status</button>}
           {canComplete && <button className="btn-p" disabled={busy} title={r.deposit_invoice_status !== 'paid' ? 'Blocked: deposit not paid' : ''}
             onClick={() => act(() => api('completeRequest', { requestId: id }), 'Request completed.')}>Complete - EC signed & filed{r.deposit_invoice_status !== 'paid' ? ' (blocked: deposit unpaid)' : ''}</button>}
           {canReassign && <button className="btn-g" disabled={busy} onClick={() => setModal('reassign')}>Reassign</button>}
