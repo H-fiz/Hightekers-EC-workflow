@@ -216,6 +216,53 @@ function App() {
   );
 }
 
+/* ---------- Stage guidance ---------- */
+const STAGE_GUIDE = {
+  INITIATED: [
+    ['AE', 'Owns this stage: upload the MSA, fee addendum, work order and feasibility form, and log any employment contract terms already known from the client.'],
+    ['Intake CSM', 'Acknowledge the submission and assign the handling CSM ("Accept & assign"). That click moves this to stage 2 - the CSM holds the authority to advance.']
+  ],
+  REQUIREMENTS_CAPTURED: [
+    ['CSM', 'Owns this stage: verify the documentation is complete and correct (MSA, addendum, work order, NHF details, visa). Return to Sales if anything is missing. Capture every client ask as a requirement item, then close the gate.'],
+    ['Legal Ops', 'Deposit invoice: notified automatically - issue the invoice and mark it issued on this request.'],
+    ['AE', 'Nothing to do unless the CSM returns this for missing documentation.']
+  ],
+  CSM_ASSESSMENT: [
+    ['CSM', 'Owns this stage: assess each requirement item - recommend, cite a precedent, or flag for HR. Closing the gate routes to HR review (if items are flagged) or straight to Ready to release.']
+  ],
+  HR_REVIEW: [
+    ['HR', 'Owns this stage: decide each flagged item - approve, reject, or escalate to Legal. Closing the gate routes onward.']
+  ],
+  LEGAL_REVIEW: [
+    ['Legal', 'Owns this stage: give a legal position on each escalated item, then close the gate.']
+  ],
+  READY_TO_RELEASE: [
+    ['CSM or HR', 'Internal review is complete. Upload the draft EC if not yet attached, check its Drive sharing (anyone-with-link, view only), and release it to the client.']
+  ],
+  CLIENT_REVIEW: [
+    ['Client', 'Reviewing via their secure page. Their responses arrive automatically.'],
+    ['CSM', 'Chase as needed; log any response received outside the portal so the record stays complete.']
+  ],
+  EC_ISSUANCE: [
+    ['HR', 'Owns this stage: issue the final contract, get it signed, upload the signed EC, and complete the request. Blocked until the deposit is marked paid.']
+  ],
+  COMPLETED: []
+};
+
+function StageGuide({ stage }) {
+  const rows = STAGE_GUIDE[stage] || [];
+  if (!rows.length) return null;
+  return (
+    <div style={{ background: '#EDF2F8', borderLeft: '4px solid var(--navy2)', borderRadius: 4,
+      padding: '10px 14px', margin: '10px 0 4px', fontSize: 13.5 }}>
+      {rows.map(([who, text]) =>
+        <div key={who} style={{ padding: '2px 0' }}>
+          <b style={{ color: 'var(--navy2)' }}>{who}:</b> {text}
+        </div>)}
+    </div>
+  );
+}
+
 /* ---------- Stage tracker (signature element) ---------- */
 function Tracker({ boot, stage }) {
   const idx = boot.stages.indexOf(stage);
@@ -240,7 +287,7 @@ function Queue({ boot, user, open }) {
       (r.csm_email === user.email && ['INITIATED','REQUIREMENTS_CAPTURED','CSM_ASSESSMENT','READY_TO_RELEASE','CLIENT_REVIEW'].includes(s));
     if (user.role === 'HR') return ['HR_REVIEW','READY_TO_RELEASE','EC_ISSUANCE'].includes(s) && (!r.hr_email || r.hr_email === user.email);
     if (user.role === 'LEGAL') return s === 'LEGAL_REVIEW' || ['requested','issued'].includes(String(r.deposit_invoice_status));
-    if (user.role === 'AE') return r.ae_email === user.email;
+    if (user.role === 'AE') return r.ae_email === user.email && s === 'INITIATED';
     return true; // ADMIN sees all
   }).sort((a, b) => new Date(a.stage_entered_at) - new Date(b.stage_entered_at));
 
@@ -472,6 +519,7 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
 
       <div className="card">
         <Tracker boot={boot} stage={stage} />
+        <StageGuide stage={stage} />
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 28px', fontSize: 14, marginTop: 8 }}>
           <span><b>Client:</b> {r.client_name} ({r.client_contact_name}, {r.client_contact_email})</span>
           <span><b>Employee:</b> {r.employee_name} — {r.job_title}</span>
@@ -610,7 +658,8 @@ function Items({ d, boot, user, act, busy }) {
   const [adding, setAdding] = useState(null);
   const [decide, setDecide] = useState(null); // {item, layer}
   const r = d.request;
-  const canAdd = ['CSM', 'ADMIN'].includes(user.role) && r.current_stage !== 'COMPLETED';
+  const canAdd = (['CSM', 'ADMIN'].includes(user.role) && r.current_stage !== 'COMPLETED') ||
+    (user.role === 'AE' && r.current_stage === 'INITIATED' && r.ae_email === user.email);
 
   return (
     <div className="card">
@@ -705,9 +754,15 @@ function DecisionModal({ ctx, d, close, act }) {
 /* ---------- Documents ---------- */
 function Docs({ d, user, act, busy }) {
   const [mode, setMode] = useState(null);
-  const [f, setF] = useState({ doc_type: 'draft-EC' });
   const fileRef = useRef();
-  const types = ['MSA', 'addendum', 'work-order', 'feasibility-form', 'NHF', 'draft-EC', 'client-markup', 'final-EC', 'signed-EC', 'other'];
+  const stage = d.request.current_stage;
+  const stageIdx = ['INITIATED','REQUIREMENTS_CAPTURED','CSM_ASSESSMENT','HR_REVIEW','LEGAL_REVIEW','READY_TO_RELEASE','CLIENT_REVIEW','EC_ISSUANCE','COMPLETED'].indexOf(stage);
+  const types = ['MSA', 'addendum', 'work-order', 'feasibility-form', 'NHF',
+    ...(stageIdx >= 2 ? ['draft-EC'] : []),
+    ...(stageIdx >= 6 ? ['client-markup'] : []),
+    ...(stageIdx >= 7 ? ['final-EC', 'signed-EC'] : []),
+    'other'];
+  const [f, setF] = useState({ doc_type: types[0] });
   const save = () => act(async () => {
     if (mode === 'upload') {
       const file = fileRef.current.files[0];
