@@ -290,8 +290,11 @@ function Queue({ boot, user, open }) {
   const mine = boot.requests.filter(r => {
     if (r.current_stage === 'COMPLETED') return false;
     const s = r.current_stage;
-    if (user.role === 'CSM') return (s === 'INITIATED' && !r.csm_email) ||
-      (r.csm_email === user.email && ['INITIATED','REQUIREMENTS_CAPTURED','CSM_ASSESSMENT','READY_TO_RELEASE','CLIENT_REVIEW'].includes(s));
+    if (user.role === 'CSM') {
+      const intakeEmail = (boot.intake || {})[r.region] || '';
+      return (s === 'INITIATED' && !r.csm_email && (!intakeEmail || intakeEmail === user.email)) ||
+        (r.csm_email === user.email && ['INITIATED','REQUIREMENTS_CAPTURED','CSM_ASSESSMENT','READY_TO_RELEASE','CLIENT_REVIEW'].includes(s));
+    }
     if (user.role === 'HR') return ['HR_REVIEW','READY_TO_RELEASE','EC_ISSUANCE'].includes(s) && (!r.hr_email || r.hr_email === user.email);
     if (user.role === 'LEGAL') return s === 'LEGAL_REVIEW' || ['requested','issued'].includes(String(r.deposit_invoice_status));
     if (user.role === 'AE') return r.ae_email === user.email && s === 'INITIATED';
