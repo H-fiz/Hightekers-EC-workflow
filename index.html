@@ -88,12 +88,12 @@ const { useState, useEffect, useMemo, useRef } = React;
 
 /* ---------- API layer ---------- */
 let ID_TOKEN = null;
-let ACT_AS = 'ADMIN';
+let ACT_AS = null;
 async function api(action, body = {}) {
   const res = await fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ ...body, action, idToken: ID_TOKEN, actAs: ACT_AS !== 'ADMIN' ? ACT_AS : undefined })
+    body: JSON.stringify({ ...body, action, idToken: ID_TOKEN, actAs: ACT_AS || undefined })
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error);
@@ -117,12 +117,16 @@ function App() {
   const [view, setView] = useState({ name: 'queue' });
   const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [testRole, setTestRole] = useState('ADMIN');
-  const setRole = (r) => {
-    ACT_AS = r; setTestRole(r);
-    if (r !== 'ADMIN' && view.name === 'admin') setView({ name: 'queue' });
+  const [testUser, setTestUser] = useState(null);
+  const setImpersonation = (email) => {
+    const t = email ? boot.users.find(u => String(u.email).toLowerCase() === String(email).toLowerCase()) : null;
+    ACT_AS = t ? t.email : null;
+    setTestUser(t || null);
+    if (t && view.name === 'admin') setView({ name: 'queue' });
   };
-  const effUser = user && testRole !== 'ADMIN' ? { ...user, role: testRole } : user;
+  const effUser = user && testUser
+    ? { ...user, email: String(testUser.email).toLowerCase(), role: String(testUser.role).toUpperCase() }
+    : user;
 
   const say = (text, err) => { setToast({ text, err }); setTimeout(() => setToast(null), 4500); };
 
@@ -186,22 +190,25 @@ function App() {
           <span>{user.name} · {user.role}</span>
           {user.role === 'ADMIN' &&
             <select style={{ width: 'auto', padding: '3px 6px', fontSize: 12, background: '#fff',
-              border: testRole !== 'ADMIN' ? '2px solid var(--accent)' : '1px solid var(--line)' }}
-              value={testRole} onChange={e => setRole(e.target.value)}>
-              {['ADMIN', 'AE', 'CSM', 'HR', 'LEGAL'].map(r => <option key={r} value={r}>View as: {r}</option>)}
+              border: testUser ? '2px solid var(--accent)' : '1px solid var(--line)' }}
+              value={testUser ? testUser.email : ''} onChange={e => setImpersonation(e.target.value)}>
+              <option value="">View as: myself (ADMIN)</option>
+              {boot.users.filter(u => String(u.active).toLowerCase() !== 'no' &&
+                  String(u.email).toLowerCase() !== user.email)
+                .map(u => <option key={u.email} value={u.email}>View as: {u.name} ({String(u.role).toUpperCase()})</option>)}
             </select>}
           <button className="btn-g" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => {
-            ID_TOKEN = null; ACT_AS = 'ADMIN';
+            ID_TOKEN = null; ACT_AS = null;
             if (window.google) google.accounts.id.disableAutoSelect();
-            setBoot(null); setUser(null); setTestRole('ADMIN'); setView({ name: 'queue' });
+            setBoot(null); setUser(null); setTestUser(null); setView({ name: 'queue' });
           }}>Sign out</button>
         </div>
       </div>
-      {testRole !== 'ADMIN' &&
+      {testUser &&
         <div style={{ background: '#FAEEDA', color: '#854F0B', padding: '7px 20px', display: 'flex',
           justifyContent: 'space-between', alignItems: 'center', fontSize: 13, fontWeight: 600 }}>
-          <span>Testing as {testRole} — actions are recorded as "{user.name} (as {testRole})"</span>
-          <button className="btn-g" style={{ padding: '3px 10px', fontSize: 12 }} onClick={() => setRole('ADMIN')}>Exit test role</button>
+          <span>Testing as {testUser.name} ({String(testUser.role).toUpperCase()}, {testUser.email}) — actions are recorded as "{user.name} (as {testUser.name})"</span>
+          <button className="btn-g" style={{ padding: '3px 10px', fontSize: 12 }} onClick={() => setImpersonation(null)}>Exit test user</button>
         </div>}
       <div className="wrap">
         {view.name === 'queue' && <Queue boot={boot} user={effUser} open={id => setView({ name: 'detail', id })} />}
