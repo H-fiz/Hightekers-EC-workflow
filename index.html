@@ -168,7 +168,14 @@ function App() {
           {nav.map(([k, l]) =>
             <button key={k} className={view.name === k ? 'on' : ''} onClick={() => setView({ name: k })}>{l}</button>)}
         </div>
-        <div style={{ fontSize: 13, color: '#C9D4E2' }}>{user.name} · {user.role}</div>
+        <div style={{ fontSize: 13, color: '#C9D4E2', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span>{user.name} · {user.role}</span>
+          <button className="btn-g" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => {
+            ID_TOKEN = null;
+            if (window.google) google.accounts.id.disableAutoSelect();
+            setBoot(null); setUser(null); setView({ name: 'queue' });
+          }}>Sign out</button>
+        </div>
       </div>
       <div className="wrap">
         {view.name === 'queue' && <Queue boot={boot} user={user} open={id => setView({ name: 'detail', id })} />}
@@ -281,8 +288,6 @@ function NewRequest({ boot, say, done }) {
   const [busy, setBusy] = useState(false);
   const [missing, setMissing] = useState([]);
   const set = (k, v) => { setF({ ...f, [k]: v }); if (missing.length) setMissing(missing.filter(m => m !== k)); };
-  const csms = boot.users.filter(u => u.role === 'CSM');
-  const hrs = boot.users.filter(u => u.role === 'HR');
 
   const submit = async () => {
     const gaps = REQUIRED_FIELDS.filter(k => !f[k] || !String(f[k]).trim());
@@ -339,11 +344,6 @@ function NewRequest({ boot, say, done }) {
             <option value="">Select...</option>
             <option value="yes">Yes</option>
             <option value="no">No</option>
-          </select></div>
-        <div className="frow"><label>Assigned HR (optional)</label>
-          <select value={f.hr_email || ''} onChange={e => set('hr_email', e.target.value)}>
-            <option value="">Default HR routing</option>
-            {hrs.map(u => <option key={u.email} value={u.email}>{u.name}</option>)}
           </select></div>
       </div>
 
