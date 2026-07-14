@@ -98,7 +98,10 @@ async function api(action, body = {}) {
     body: JSON.stringify({ ...body, action, idToken: ID_TOKEN, actAs: ACT_AS || undefined })
   });
   const json = await res.json();
-  if (!json.ok) throw new Error(json.error);
+  if (!json.ok) {
+    if (String(json.error).startsWith('AUTH')) throw new Error('Your session has expired - please sign in again (your work in the sheet is safe).');
+    throw new Error(json.error);
+  }
   return json.data;
 }
 
@@ -250,7 +253,7 @@ const STAGE_GUIDE = {
     ['Legal', 'Owns this stage: give a legal position on each escalated item, then close the gate.']
   ],
   READY_TO_RELEASE: [
-    ['CSM or HR', 'Internal review is complete. Upload the draft EC if not yet attached, check its Drive sharing (anyone-with-link, view only), and release it to the client.']
+    ['CSM or HR', 'Internal review is complete. The contract must be attached as draft-EC or final-EC in PDF or image format, with Drive sharing set (anyone-with-link, view only). Release is blocked until Legal Ops has marked the deposit invoice as issued.']
   ],
   CLIENT_REVIEW: [
     ['Client', 'Reviewing via their secure page. Their responses arrive automatically.'],
@@ -511,6 +514,7 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
   const canDepForward = depNext && stage !== 'COMPLETED' && ['LEGAL', 'ADMIN'].includes(user.role);
   const canDepRevert = depIdx > 1 && stage !== 'COMPLETED' && ['LEGAL', 'ADMIN'].includes(user.role);
   const depForwardLabel = { issued: 'Mark deposit invoice issued', paid: 'Mark deposit paid' }[depNext];
+  const depositReadyForRelease = ['issued', 'paid'].includes(depStatus);
   const depositColor = { pending: 'var(--red)', requested: 'var(--amber)', issued: 'var(--amber)', paid: 'var(--ok)' }[depStatus] || '#889';
 
   const gateLabel = {
@@ -560,7 +564,9 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
           {stage !== 'INITIATED' && canGate && <button className="btn-p" disabled={busy}
             onClick={() => act(() => api('approveGate', { requestId: id }), 'Gate approved.')}>{gateLabel}</button>}
           {canReturn && <button className="btn-g" disabled={busy} onClick={() => setModal('return')}>Return to Sales - docs incomplete</button>}
-          {canRelease && <button className="btn-a" disabled={busy} onClick={() => setModal('release')}>Release to client</button>}
+          {canRelease && <button className="btn-a" disabled={busy || !depositReadyForRelease}
+            title={!depositReadyForRelease ? 'Blocked: deposit invoice not yet issued by Legal Ops' : ''}
+            onClick={() => setModal('release')}>Release to client{!depositReadyForRelease ? ' (blocked: invoice not issued)' : ''}</button>}
           {canLogClient && <button className="btn-g" disabled={busy} onClick={() => setModal('logclient')}>Log client response (received offline)</button>}
           {canDepForward && <button className="btn-g" disabled={busy}
             onClick={() => act(() => api('markDeposit', { requestId: id, status: depNext }), 'Deposit marked ' + depNext + '.')}>{depForwardLabel}</button>}
@@ -929,18 +935,23 @@ function History({ d, boot }) {
 
 /* ---------- Release & log-client modals ---------- */
 function ReleaseModal({ d, close, act }) {
-  const drafts = d.documents.filter(x => ['draft-EC', 'final-EC'].includes(x.doc_type));
+  const viewable = x => /\.(pdf|png|jpe?g)$/i.test(String(x.file_name));
+  const ecDocs = d.documents.filter(x => ['draft-EC', 'final-EC'].includes(x.doc_type));
+  const drafts = ecDocs.filter(viewable);
+  const excluded = ecDocs.length - drafts.length;
   const [docId, setDocId] = useState(drafts.length ? drafts[drafts.length - 1].doc_id : '');
   return (
     <div className="modal-bg" onClick={close}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <h3 style={{ color: 'var(--navy)' }}>Release to client</h3>
         <p style={{ fontSize: 14 }}>The client ({d.request.client_contact_name}, {d.request.client_contact_email}) will receive a secure review link by email. Make sure the selected draft is shared so the link in their page opens (anyone-with-link, view only).</p>
-        <div className="frow"><label>Draft to send</label>
+        <div className="frow"><label>Contract to send (draft-EC / final-EC, PDF or image only)</label>
           <select value={docId} onChange={e => setDocId(e.target.value)}>
             <option value="">Select document...</option>
             {drafts.map(x => <option key={x.doc_id} value={x.doc_id}>{x.file_name} (v{x.version})</option>)}
-          </select></div>
+          </select>
+          {!drafts.length && <div style={{ color: 'var(--red)', fontSize: 13, marginTop: 6 }}>No eligible contract found - upload the EC as doc type draft-EC or final-EC in PDF or image format.</div>}
+          {excluded > 0 && <div className="muted" style={{ marginTop: 4 }}>{excluded} EC document(s) hidden - not PDF/image, so the client could not view them.</div>}</div>
         <button className="btn-a" disabled={!docId}
           onClick={() => act(async () => { await api('releaseToClient', { requestId: d.request.request_id, docId }); close(); }, 'Released - client notified.')}>Send to client</button>
         <button className="btn-g" style={{ marginLeft: 8 }} onClick={close}>Cancel</button>
