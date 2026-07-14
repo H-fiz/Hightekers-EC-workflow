@@ -241,7 +241,7 @@ const STAGE_GUIDE = {
     ['AE', 'Nothing to do unless the CSM returns this for missing documentation.']
   ],
   CSM_ASSESSMENT: [
-    ['CSM', 'Owns this stage: assess each requirement item - recommend, cite a precedent, or flag for HR. Closing the gate routes to HR review (if items are flagged) or straight to Ready to release.']
+    ['CSM', 'Owns this stage: assess each item - recommend, confirm via precedent, reject with an explanation, or flag for HR. Edit or withdraw items if the client clarifies or changes an ask. Upload the draft EC (v1) - the gate will not close without it. Closing the gate routes to HR review (if items are flagged) or straight to Ready to release.']
   ],
   HR_REVIEW: [
     ['HR', 'Owns this stage: decide each flagged item - approve, reject, or escalate to Legal. Closing the gate routes onward.']
@@ -774,7 +774,7 @@ function Dec({ v, n, extra }) {
 function DecisionModal({ ctx, d, close, act }) {
   const { item, layer } = ctx;
   const options = {
-    csm: [['recommend','Recommend - standard/acceptable'],['precedent-cited','Confirmed via precedent'],['flag-HR','Flag for HR review']],
+    csm: [['recommend','Recommend - standard/acceptable'],['precedent-cited','Confirmed via precedent'],['reject','Reject - cannot be accommodated'],['flag-HR','Flag for HR review']],
     hr: [['approve','Approve exception'],['reject','Reject - not permissible'],['escalate-legal','Escalate to Legal']],
     legal: [['approve','Legally permissible'],['reject','Not legally permissible']]
   }[layer];
