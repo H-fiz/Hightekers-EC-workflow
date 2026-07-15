@@ -180,7 +180,7 @@ function App() {
 
   const nav = [
     ['queue', 'My queue'], ['board', 'Pipeline'],
-    ...(effUser.role !== 'LEGAL' ? [['new', 'New request']] : []),
+    ...(!['LEGAL', 'LEGAL_OPS'].includes(effUser.role) ? [['new', 'New request']] : []),
     ['metrics', 'Performance'], ...(effUser.role === 'ADMIN' ? [['admin', 'Admin']] : [])
   ];
 
@@ -250,7 +250,7 @@ const STAGE_GUIDE = {
     ['HR', 'Owns this stage: decide each flagged item - approve, reject, or escalate to Legal. Closing the gate routes onward.']
   ],
   LEGAL_REVIEW: [
-    ['Legal', 'Owns this stage: give a legal position on each escalated item, then close the gate.']
+    ['Legal expert', 'Owns this stage: give a legal position on each escalated item, then close the gate. (Deposit invoicing is Legal Ops, separately.)']
   ],
   READY_TO_RELEASE: [
     ['CSM or HR', 'Internal review is complete. The contract must be attached as draft-EC or final-EC in PDF or image format, with Drive sharing set (anyone-with-link, view only). Release is blocked until Legal Ops has marked the deposit invoice as issued.']
@@ -305,7 +305,8 @@ function Queue({ boot, user, open }) {
         (r.csm_email === user.email && ['INITIATED','REQUIREMENTS_CAPTURED','CSM_ASSESSMENT','READY_TO_RELEASE','CLIENT_REVIEW'].includes(s));
     }
     if (user.role === 'HR') return ['HR_REVIEW','READY_TO_RELEASE','EC_ISSUANCE'].includes(s) && (!r.hr_email || r.hr_email === user.email);
-    if (user.role === 'LEGAL') return s === 'LEGAL_REVIEW' || ['requested','issued'].includes(String(r.deposit_invoice_status));
+    if (user.role === 'LEGAL') return s === 'LEGAL_REVIEW';
+    if (user.role === 'LEGAL_OPS') return ['requested','issued'].includes(String(r.deposit_invoice_status)) && s !== 'COMPLETED';
     if (user.role === 'AE') return r.ae_email === user.email && s === 'INITIATED';
     return true; // ADMIN sees all
   }).sort((a, b) => new Date(a.stage_entered_at) - new Date(b.stage_entered_at));
@@ -511,8 +512,8 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
   const DEP_CHAIN = ['pending', 'requested', 'issued', 'paid'];
   const depIdx = DEP_CHAIN.indexOf(depStatus);
   const depNext = depStatus === 'pending' ? null : DEP_CHAIN[depIdx + 1];
-  const canDepForward = depNext && stage !== 'COMPLETED' && ['LEGAL', 'ADMIN'].includes(user.role);
-  const canDepRevert = depIdx > 1 && stage !== 'COMPLETED' && ['LEGAL', 'ADMIN'].includes(user.role);
+  const canDepForward = depNext && stage !== 'COMPLETED' && ['LEGAL_OPS', 'ADMIN'].includes(user.role);
+  const canDepRevert = depIdx > 1 && stage !== 'COMPLETED' && ['LEGAL_OPS', 'ADMIN'].includes(user.role);
   const depForwardLabel = { issued: 'Mark deposit invoice issued', paid: 'Mark deposit paid' }[depNext];
   const depositReadyForRelease = ['issued', 'paid'].includes(depStatus);
   const depositColor = { pending: 'var(--red)', requested: 'var(--amber)', issued: 'var(--amber)', paid: 'var(--ok)' }[depStatus] || '#889';
@@ -964,6 +965,7 @@ function LogClientModal({ d, close, act }) {
   const open = d.items.filter(i => i.item_status === 'with-client');
   const [resp, setResp] = useState({});
   const [general, setGeneral] = useState('');
+  const [newAsks, setNewAsks] = useState('');
   return (
     <div className="modal-bg" onClick={close}>
       <div className="modal" onClick={e => e.stopPropagation()}>
@@ -984,11 +986,14 @@ function LogClientModal({ d, close, act }) {
           </div>)}
         <div className="frow"><label>General comment from client (optional)</label>
           <textarea rows="2" value={general} onChange={e => setGeneral(e.target.value)} /></div>
+        <div className="frow"><label>New requirements the client raised (one per line, optional)</label>
+          <textarea rows="2" value={newAsks} onChange={e => setNewAsks(e.target.value)} placeholder="e.g. add a company car clause" /></div>
         <button className="btn-p"
           onClick={() => act(async () => {
             const responses = Object.keys(resp).filter(k => resp[k].response)
               .map(k => ({ itemId: k, response: resp[k].response, note: resp[k].note || '' }));
-            await api('logClientResponse', { requestId: d.request.request_id, responses, generalComment: general });
+            const newItems = newAsks.split('\n').map(x => x.trim()).filter(Boolean).map(x => ({ description: x }));
+            await api('logClientResponse', { requestId: d.request.request_id, responses, generalComment: general, newItems });
             close();
           }, 'Client response logged.')}>Log response</button>
         <button className="btn-g" style={{ marginLeft: 8 }} onClick={close}>Cancel</button>
@@ -1085,7 +1090,7 @@ function Admin({ boot, say, refresh }) {
           <input style={{ maxWidth: 170 }} placeholder="Name" value={u.name || ''} onChange={e => setU({ ...u, name: e.target.value })} />
           <input style={{ maxWidth: 220 }} placeholder="Email" value={u.email || ''} onChange={e => setU({ ...u, email: e.target.value })} />
           <select style={{ maxWidth: 110 }} value={u.role} onChange={e => setU({ ...u, role: e.target.value })}>
-            {['AE', 'CSM', 'HR', 'LEGAL', 'ADMIN'].map(r => <option key={r}>{r}</option>)}</select>
+            {['AE', 'CSM', 'HR', 'LEGAL', 'LEGAL_OPS', 'ADMIN'].map(r => <option key={r}>{r}</option>)}</select>
           <input style={{ maxWidth: 110 }} placeholder="Region" value={u.region || ''} onChange={e => setU({ ...u, region: e.target.value })} />
           <select style={{ maxWidth: 90 }} value={u.active} onChange={e => setU({ ...u, active: e.target.value })}>
             <option value="yes">active</option><option value="no">inactive</option></select>
