@@ -99,8 +99,14 @@ async function api(action, body = {}) {
   });
   const json = await res.json();
   if (!json.ok) {
-    if (String(json.error).startsWith('AUTH')) throw new Error('Your session has expired - please sign in again (your work in the sheet is safe).');
-    throw new Error(json.error);
+    const err = String(json.error);
+    if (err.startsWith('AUTH')) {
+      if (err.includes('not registered')) {
+        throw new Error('This Google account is not registered for the EC Workflow. Ask the admin to add your exact sign-in email to the USERS tab. (' + err.replace('AUTH: ', '') + ')');
+      }
+      throw new Error('Your session has expired - please sign in again (your work in the sheet is safe).');
+    }
+    throw new Error(err);
   }
   return json.data;
 }
@@ -298,6 +304,7 @@ function Tracker({ boot, stage }) {
 function Queue({ boot, user, open }) {
   const mine = boot.requests.filter(r => {
     if (r.current_stage === 'COMPLETED') return false;
+    if ((r.lifecycle_status || 'active') !== 'active') return false;
     const s = r.current_stage;
     if (user.role === 'CSM') {
       const intakeEmail = (boot.intake || {})[r.region] || '';
@@ -343,6 +350,11 @@ function Board({ boot, open, refresh }) {
     (r.request_id + r.client_name + r.employee_name + r.country + r.csm_email)
       .toLowerCase().includes(q.toLowerCase()));
   const cols = boot.stages.filter(s => s !== 'COMPLETED');
+  const active = live.filter(r => (r.lifecycle_status || 'active') === 'active');
+  const parked = live.filter(r => (r.lifecycle_status || 'active') !== 'active');
+  const [parkFilter, setParkFilter] = useState('all');
+  const parkedShown = parked.filter(r => parkFilter === 'all' ||
+    (parkFilter === 'on-hold' ? r.lifecycle_status === 'on-hold' : r.lifecycle_status === 'cancelled'));
   const done = live.filter(r => r.current_stage === 'COMPLETED');
   return (
     <div>
@@ -352,7 +364,7 @@ function Board({ boot, open, refresh }) {
       </div>
       <div className="board">
         {cols.map(s => {
-          const rs = live.filter(r => r.current_stage === s);
+          const rs = active.filter(r => r.current_stage === s);
           return (
             <div className="col" key={s}>
               <h4>{boot.stageLabels[s]} ({rs.length})</h4>
@@ -365,6 +377,23 @@ function Board({ boot, open, refresh }) {
                 </div>)}
             </div>);
         })}
+      </div>
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3>On hold / Closed ({parked.length})</h3>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+          {[['all', 'All'], ['on-hold', 'On hold'], ['cancelled', 'Cancelled']].map(([k, l]) =>
+            <button key={k} className={'btn-g'} style={parkFilter === k ? { background: 'var(--navy)', color: '#fff', borderColor: 'var(--navy)' } : {}}
+              onClick={() => setParkFilter(k)}>{l}</button>)}
+        </div>
+        {!parkedShown.length && <div className="muted">Nothing here.</div>}
+        {parkedShown.map(r =>
+          <div key={r.request_id} style={{ padding: '7px 0', borderBottom: '1px solid var(--line)', fontSize: 14, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="link" onClick={() => open(r.request_id)}>{r.request_id}</span>
+            <span className="pill" style={r.lifecycle_status === 'on-hold' ? { background: '#FFF3E0', color: '#8a5a10' } : { background: '#FBE9E7', color: '#8C3A1B' }}>
+              {r.lifecycle_status === 'on-hold' ? 'ON HOLD' : 'CANCELLED'}</span>
+            <span>{r.client_name} / {r.employee_name} · {r.country}</span>
+            <span className="muted">was at {boot.stageLabels[r.current_stage]} · {fmtDate(r.lifecycle_changed_at)}</span>
+          </div>)}
       </div>
       <div className="card" style={{ marginTop: 16 }}>
         <h3>Completed ({done.length})</h3>
@@ -499,14 +528,17 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
   };
 
   const stage = r.current_stage;
+  const lifecycle = r.lifecycle_status || 'active';
+  const frozen = lifecycle !== 'active';
+  const canLifecycle = ['CSM', 'HR', 'ADMIN'].includes(user.role) && stage !== 'COMPLETED';
   const wasReturned = stage === 'INITIATED' && Number(r.returns_to_sales || 0) > 0;
   const gateOwnerRole = { INITIATED: 'CSM', REQUIREMENTS_CAPTURED: 'CSM', CSM_ASSESSMENT: 'CSM', HR_REVIEW: 'HR', LEGAL_REVIEW: 'LEGAL' }[stage];
-  const canGate = gateOwnerRole && (user.role === gateOwnerRole || user.role === 'ADMIN');
-  const canRelease = stage === 'READY_TO_RELEASE' && ['CSM', 'HR', 'ADMIN'].includes(user.role);
-  const canComplete = stage === 'EC_ISSUANCE' && ['HR', 'ADMIN'].includes(user.role);
-  const canLogClient = stage === 'CLIENT_REVIEW' && ['CSM', 'HR', 'ADMIN'].includes(user.role);
-  const canReturn = stage === 'REQUIREMENTS_CAPTURED' && ['CSM', 'ADMIN'].includes(user.role);
-  const canResubmit = wasReturned && (user.role === 'ADMIN' || r.ae_email === user.email);
+  const canGate = !frozen && gateOwnerRole && (user.role === gateOwnerRole || user.role === 'ADMIN');
+  const canRelease = !frozen && stage === 'READY_TO_RELEASE' && ['CSM', 'HR', 'ADMIN'].includes(user.role);
+  const canComplete = !frozen && stage === 'EC_ISSUANCE' && ['HR', 'ADMIN'].includes(user.role);
+  const canLogClient = !frozen && stage === 'CLIENT_REVIEW' && ['CSM', 'HR', 'ADMIN'].includes(user.role);
+  const canReturn = !frozen && stage === 'REQUIREMENTS_CAPTURED' && ['CSM', 'ADMIN'].includes(user.role);
+  const canResubmit = !frozen && wasReturned && (user.role === 'ADMIN' || r.ae_email === user.email);
   const canReassign = ['CSM', 'HR', 'ADMIN'].includes(user.role) && !['COMPLETED', 'INITIATED'].includes(stage);
   const depStatus = r.deposit_invoice_status || 'pending';
   const DEP_CHAIN = ['pending', 'requested', 'issued', 'paid'];
@@ -552,9 +584,19 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
           <span><b>CSM:</b> {r.csm_email || '(awaiting intake assignment)'}</span>
           <span><b>AE:</b> {r.ae_email}</span>
           <span><b>In stage:</b> {hoursSince(r.stage_entered_at)}h</span>
+          {frozen && <span><b>Status:</b> <b style={{ color: lifecycle === 'on-hold' ? 'var(--amber)' : 'var(--red)' }}>{lifecycle === 'on-hold' ? 'ON HOLD' : 'CANCELLED'}</b></span>}
           <span><b>Deposit invoice:</b> <b style={{ color: depositColor }}>{depStatus === 'pending' ? 'pending (auto-requested at stage 2)' : depStatus}</b>
             {Number(r.returns_to_sales) > 0 && <span className="muted"> · returned to Sales {r.returns_to_sales}x</span>}</span>
         </div>
+        {frozen &&
+          <div style={{ background: lifecycle === 'on-hold' ? '#FFF6EC' : '#FBEAE5',
+            border: '1px solid ' + (lifecycle === 'on-hold' ? '#F0D9BE' : '#E8C4B8'),
+            color: lifecycle === 'on-hold' ? '#7A4A12' : '#8C3A1B',
+            borderRadius: 6, padding: '9px 14px', marginTop: 12, fontSize: 14, fontWeight: 600 }}>
+            {lifecycle === 'on-hold'
+              ? 'This request is ON HOLD - workflow actions are frozen. It will resume at the same stage.'
+              : 'This request is CANCELLED - it is closed permanently and the client link has been deactivated.'}
+          </div>}
         <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {stage === 'INITIATED' && canGate && !wasReturned &&
             <button className="btn-p" disabled={busy} onClick={() => setModal('assign')}>{gateLabel}</button>}
@@ -578,6 +620,19 @@ function Detail({ id, boot, user, say, refreshAll, back }) {
           {canComplete && <button className="btn-p" disabled={busy} title={r.deposit_invoice_status !== 'paid' ? 'Blocked: deposit not paid' : ''}
             onClick={() => act(() => api('completeRequest', { requestId: id }), 'Request completed.')}>Complete - EC signed & filed{r.deposit_invoice_status !== 'paid' ? ' (blocked: deposit unpaid)' : ''}</button>}
           {canReassign && <button className="btn-g" disabled={busy} onClick={() => setModal('reassign')}>Reassign</button>}
+          {canLifecycle && lifecycle === 'active' && <button className="btn-g" disabled={busy} onClick={() => {
+            const reason = prompt('Put this request ON HOLD.\nReason (required, goes on the record and is sent to the team):');
+            if (reason && reason.trim()) act(() => api('setLifecycle', { requestId: id, op: 'hold', reason: reason.trim() }), 'Request put on hold.');
+          }}>Put on hold</button>}
+          {canLifecycle && lifecycle === 'on-hold' && <button className="btn-p" disabled={busy} onClick={() => {
+            if (confirm('Resume this request at stage "' + boot.stageLabels[stage] + '"?'))
+              act(() => api('setLifecycle', { requestId: id, op: 'resume' }), 'Request resumed.');
+          }}>Resume</button>}
+          {canLifecycle && lifecycle !== 'cancelled' && <button className="btn-g" disabled={busy}
+            style={{ color: 'var(--red)', borderColor: 'var(--red)' }} onClick={() => {
+            const reason = prompt('CANCEL this request permanently? This cannot be undone and the client link will be deactivated.\nReason (required):');
+            if (reason && reason.trim()) act(() => api('setLifecycle', { requestId: id, op: 'cancel', reason: reason.trim() }), 'Request cancelled.');
+          }}>Cancel request</button>}
         </div>
       </div>
 
@@ -1036,7 +1091,9 @@ function Metrics({ boot }) {
     activeItems.filter(i => ['reject', 'counter'].includes(String(i.client_response))).forEach(i => { catLoop[i.category] = (catLoop[i.category] || 0) + 1; });
 
     return {
-      live: reqs.filter(r => r.current_stage !== 'COMPLETED').length,
+      live: reqs.filter(r => r.current_stage !== 'COMPLETED' && (r.lifecycle_status || 'active') === 'active').length,
+      onHold: reqs.filter(r => r.lifecycle_status === 'on-hold').length,
+      cancelled: reqs.filter(r => r.lifecycle_status === 'cancelled').length,
       done: done.length,
       medCycle: med(cycles).toFixed(1), p90Cycle: p90(cycles).toFixed(1),
       firstPass, legalPct, byStage, avg, catCount, catLoop,
@@ -1053,7 +1110,8 @@ function Metrics({ boot }) {
           {[['Live requests', m.live], ['Completed', m.done],
             ['Median cycle (days)', m.medCycle], ['P90 cycle (days)', m.p90Cycle],
             ['First-pass acceptance', m.firstPass + '%'], ['Avg iterations', m.avgIter],
-            ['% needing Legal', m.legalPct + '%'], ['Returns to Sales', m.returns]]
+            ['% needing Legal', m.legalPct + '%'], ['Returns to Sales', m.returns],
+            ['On hold', m.onHold], ['Cancelled', m.cancelled]]
             .map(([l, v]) => <div className="kpi" key={l}><div className="v">{v}</div><div className="l">{l}</div></div>)}
         </div>
         <div className="muted" style={{ marginTop: 6 }}>Cycle time is end-to-end calendar days from initiation to signed EC. Time with the client is visible in the stage table below and is excluded from internal SLA breaches.</div>
